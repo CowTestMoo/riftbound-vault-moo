@@ -20,21 +20,14 @@
       browse.type='button';
       browse.textContent='Browse Libraries';
       browse.addEventListener('click',()=>window.RiftboundSocial?.openBrowser?.());
+      stack.appendChild(browse);
     }
-    if(browse.parentElement!==stack)stack.appendChild(browse);
-    const headerBrowse=document.querySelector('#socialAccountArea #browseLibrariesBtn');
-    if(headerBrowse)headerBrowse.hidden=true;
   }
 
   function init(){
     ensureUtilityStack();
-    let queued=false;
-    const observer=new MutationObserver(()=>{
-      if(queued)return;
-      queued=true;
-      requestAnimationFrame(()=>{queued=false;ensureUtilityStack()});
-    });
-    observer.observe(document.body,{childList:true,subtree:true});
+    window.addEventListener('riftbound-cloud-restored',ensureUtilityStack);
+    window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(ensureUtilityStack,60));
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

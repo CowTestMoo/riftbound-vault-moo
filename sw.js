@@ -1,5 +1,5 @@
-const CACHE='riftbound-vault-shell-v5';
-const SHELL=['./','./index.html','./styles.css','./cosmic-effects.css','./cosmic.js','./app.js','./manifest.json','./icon.svg'];
+const CACHE='riftbound-vault-shell-v6';
+const SHELL=['./','./index.html','./styles.css','./cosmic-effects.css','./polish.css','./cosmic.js','./polish.js','./app.js','./manifest.json','./icon.svg'];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();
@@ -16,7 +16,6 @@ self.addEventListener('activate',event=>{
 
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET') return;
-
   const url=new URL(event.request.url);
   if(url.origin===self.location.origin){
     event.respondWith(
@@ -30,8 +29,5 @@ self.addEventListener('fetch',event=>{
     );
     return;
   }
-
-  event.respondWith(
-    caches.match(event.request).then(hit=>hit||fetch(event.request))
-  );
+  event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request)));
 });

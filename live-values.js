@@ -12,7 +12,11 @@
       const next={market:Number(p.market||0),low:Number(p.low||0),mid:Number(p.mid||0),source:live.source||'TCGplayer via TCGCSV',updatedAt:live.updatedAt||new Date().toISOString(),productId:p.productId||null,printing:p.printing||'Normal',url:p.url||''};
       if(next.market>0&&!samePrice(old,next)){s.prices[code]=next;changed=true}
     }
-    if(changed){localStorage.setItem(APP_KEY,JSON.stringify(s));window.RiftboundApp?.reloadState?.();window.RiftboundFeatures?.render?.()}
+    if(changed){
+      localStorage.setItem(APP_KEY,JSON.stringify(s));
+      if(window.RiftboundApp?.reloadState)window.RiftboundApp.reloadState();
+      else window.RiftboundFeatures?.render?.();
+    }
   }
   function updateCopy(){
     const panel=document.getElementById('toolPanel');if(!panel)return;
@@ -23,8 +27,12 @@
   async function load(){
     try{const r=await fetch('./data/prices.json',{cache:'no-store'});if(!r.ok)throw new Error(`HTTP ${r.status}`);const raw=await r.json();live={cards:raw.cards||raw.prices||{},updatedAt:raw.updatedAt||raw.generatedAt||null,source:raw.source||'TCGplayer via TCGCSV'};merge();updateCopy();window.dispatchEvent(new CustomEvent('riftbound-prices-loaded',{detail:{count:Object.keys(live.cards).length,updatedAt:live.updatedAt}}))}catch(err){console.info('Automatic prices are waiting for the first daily price sync.',err.message)}
   }
-  const observer=new MutationObserver(()=>updateCopy());
-  function init(){load();observer.observe(document.body,{childList:true,subtree:true});window.addEventListener('focus',()=>{const age=live.updatedAt?Date.now()-Date.parse(live.updatedAt):Infinity;if(age>6*60*60*1000)load()})}
+  function init(){
+    load();
+    window.addEventListener('riftbound-tool-render',e=>{if(e.detail?.tool==='values')requestAnimationFrame(updateCopy)});
+    window.addEventListener('riftbound-ui-render',e=>{const scopes=e.detail?.scopes||[];if(scopes.includes('state'))requestAnimationFrame(updateCopy)});
+    window.addEventListener('focus',()=>{const age=live.updatedAt?Date.now()-Date.parse(live.updatedAt):Infinity;if(age>6*60*60*1000)load()});
+  }
   window.RiftboundPrices={reload:load,get:code=>live.cards?.[code]||null};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

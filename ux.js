@@ -12,15 +12,21 @@
   let currentHover='';
   let audioCtx=null;
   let lastSetCompletion=new Map();
+  let stateCache=null;
+  let refreshFrame=0;
+  const pendingRefreshScopes=new Set();
 
   function loadSettings(){
     try{return {density:'normal',intensity:'cosmic',background:98,sound:false,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')};}
     catch{return {density:'normal',intensity:'cosmic',background:98,sound:false};}
   }
   function saveSettings(){localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));}
+  function invalidateState(){stateCache=null}
   function readState(){
-    try{return {inventory:{},decks:[],loans:[],transactions:[],...JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')};}
-    catch{return {inventory:{},decks:[],loans:[],transactions:[]};}
+    if(stateCache)return stateCache;
+    try{stateCache={inventory:{},decks:[],loans:[],transactions:[],...JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')};}
+    catch{stateCache={inventory:{},decks:[],loans:[],transactions:[]};}
+    return stateCache;
   }
   const norm=v=>String(v||'').trim().toLowerCase().replace(/\s+/g,'-');
   const nameOf=c=>c?.fullName||c?.name||c?.cardCode||'Unknown card';
@@ -48,6 +54,7 @@
       const raw=await r.json();
       catalog=(Array.isArray(raw)?raw:(raw.cards||[])).map((c,i)=>({...c,cardCode:String(c.cardCode||c.code||c.id||`card-${i}`),cardSet:c.cardSet||c.setName||c.setCode||'Unknown',imageUrl:c.imageUrl||c.image_url||''}));
       catalogByCode=new Map(catalog.map(c=>[c.cardCode,c]));
+      invalidateState();
       renderDashboard();
       decorateAll();
       updateFooter();
@@ -93,7 +100,7 @@
   }
 
   function activeFilterText(){
-    const active=[...document.querySelectorAll('.filter-row .filter-chip.active')].map(x=>x.dataset.value).filter(v=>v&&v!=='All');
+    const active=[...document.querySelectorAll('#cardsView .filter-row .filter-chip.active')].map(x=>x.dataset.value).filter(v=>v&&v!=='All');
     const ownedOnly=document.getElementById('ownedOnly')?.checked;
     if(ownedOnly)active.push('Owned only');
     const query=(document.getElementById('cardSearch')?.value||'').trim();
@@ -107,7 +114,7 @@
     document.getElementById('cardSearch')?.focus();
     const search=document.getElementById('cardSearch');if(search){search.value='';search.dispatchEvent(new Event('input',{bubbles:true}));}
     const owned=document.getElementById('ownedOnly');if(owned&&owned.checked){owned.checked=false;owned.dispatchEvent(new Event('change',{bubbles:true}));}
-    document.querySelectorAll('.filter-row').forEach(row=>{const all=[...row.querySelectorAll('.filter-chip')].find(x=>x.dataset.value==='All');if(all&&!all.classList.contains('active'))all.click();});
+    document.querySelectorAll('#cardsView .filter-row').forEach(row=>{const all=[...row.querySelectorAll('.filter-chip')].find(x=>x.dataset.value==='All');if(all&&!all.classList.contains('active'))all.click();});
     setTimeout(updateFilterSummary,0);
   }
 
@@ -137,7 +144,8 @@
   function recentTransactions(){return readState().transactions.filter(t=>Number(t.delta)>0).slice(0,8);}
   function setProgressData(){
     const grouped=new Map();
-    for(const c of catalog){const set=c.cardSet||'Unknown';if(!grouped.has(set))grouped.set(set,{set,total:0,owned:0});const x=grouped.get(set);x.total++;if(owned(c.cardCode)>0)x.owned++;}
+    const s=readState();
+    for(const c of catalog){const set=c.cardSet||'Unknown';if(!grouped.has(set))grouped.set(set,{set,total:0,owned:0});const x=grouped.get(set);x.total++;if(Number(s.inventory?.[c.cardCode]?.owned||0)>0)x.owned++;}
     return [...grouped.values()].sort((a,b)=>b.owned-a.owned||a.set.localeCompare(b.set));
   }
   function renderDashboard(){
@@ -190,6 +198,25 @@
 
   function decorateAll(){decorateDomains();decorateRarity();decorateImages();updateFilterSummary();improveQuantityDialog();syncMobileNav();}
 
+  function scheduleUiRefresh(scopes=[]){
+    for(const scope of scopes)pendingRefreshScopes.add(scope);
+    if(refreshFrame)return;
+    refreshFrame=requestAnimationFrame(()=>{
+      refreshFrame=0;
+      const s=new Set(pendingRefreshScopes);pendingRefreshScopes.clear();
+      if(s.has('state')||s.has('stats'))invalidateState();
+      if(s.has('cards')){
+        const grid=document.getElementById('cardGrid');if(grid){grid.classList.add('ux-filtering');setTimeout(()=>grid.classList.remove('ux-filtering'),120)}
+        decorateRarity();decorateImages();updateFilterSummary();
+      }
+      if(s.has('filters')){decorateDomains();updateFilterSummary()}
+      if(s.has('storage'))decorateDomains();
+      if(s.has('card-dialog'))improveQuantityDialog();
+      if(s.has('tab'))syncMobileNav();
+      if(s.has('state')||s.has('stats'))renderDashboard();
+    });
+  }
+
   document.addEventListener('click',event=>{
     const density=event.target.closest('[data-density]');if(density){settings.density=density.dataset.density;saveSettings();applySettings();return;}
     if(event.target.closest('#clearFiltersBtn')){clearFilters();return;}
@@ -198,7 +225,7 @@
     const mt=event.target.closest('[data-mobile-tab]');if(mt){switchTab(mt.dataset.mobileTab);return;}
     const recent=event.target.closest('[data-recent-card]');if(recent){document.querySelector(`[data-card="${CSS.escape(recent.dataset.recentCard)}"]`)?.click();return;}
     const set=event.target.closest('[data-set-filter]');if(set){const wanted=set.dataset.setFilter;const chip=[...document.querySelectorAll('#setFilters .filter-chip')].find(x=>x.dataset.value===wanted);chip?.click();document.getElementById('cardsView')?.scrollIntoView({behavior:reduce.matches?'auto':'smooth',block:'start'});return;}
-    const add=event.target.closest('[data-adjust],[data-bulk]');if(add){const delta=Number(add.dataset.adjust??add.dataset.bulk??0);if(delta>0)setTimeout(()=>{showRoute(add.dataset.code,delta);renderDashboard();},40);}
+    const add=event.target.closest('[data-adjust],[data-bulk]');if(add){const delta=Number(add.dataset.adjust??add.dataset.bulk??0);if(delta>0)setTimeout(()=>showRoute(add.dataset.code,delta),40);}
   },true);
 
   document.addEventListener('change',event=>{
@@ -223,16 +250,13 @@
     }
   });
 
-  const observer=new MutationObserver(records=>{
-    let cardsChanged=false,stateChanged=false;
-    for(const r of records){if(r.target.closest?.('#cardGrid')||[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.card-tile')||n.querySelector?.('.card-tile'))))cardsChanged=true;if(r.target.closest?.('.stats-strip')||r.target.id==='cardDialog')stateChanged=true;}
-    if(cardsChanged){const grid=document.getElementById('cardGrid');if(grid){grid.classList.add('ux-filtering');setTimeout(()=>grid.classList.remove('ux-filtering'),120);}decorateAll();}
-    else if(stateChanged){decorateAll();renderDashboard();}
-  });
+  window.addEventListener('riftbound-ui-render',e=>scheduleUiRefresh(e.detail?.scopes||[]));
+  window.addEventListener('riftbound-local-change',e=>{if(e.detail?.key===STORAGE_KEY)scheduleUiRefresh(['state'])});
+  window.addEventListener('riftbound-cloud-restored',()=>scheduleUiRefresh(['state','cards','storage']));
+  window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY)scheduleUiRefresh(['state','cards','storage'])});
 
   function init(){
     ensureStructure();applySettings();decorateAll();
-    observer.observe(document.body,{childList:true,subtree:true,characterData:true});
     loadCatalog();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

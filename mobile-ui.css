@@ -12,8 +12,8 @@ body[data-vault-theme="neon"] .friend-user-self>span{border-color:rgba(57,255,21
   .mobile-nav{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}
 
   /* Compact secondary actions live below the stats instead of competing with primary navigation. */
-  .mobile-utility-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:8px 0 12px;padding:0 1px;position:relative;z-index:24}
-  .mobile-utility-btn{appearance:none;min-width:0;min-height:38px;display:flex!important;align-items:center;justify-content:center;gap:5px;border:1px solid rgba(121,160,255,.16)!important;border-radius:11px!important;background:linear-gradient(180deg,rgba(13,23,43,.86),rgba(7,13,27,.90))!important;color:#9eb1d2!important;padding:8px 7px!important;font:inherit!important;font-size:.69rem!important;font-weight:850!important;line-height:1!important;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)!important}
+  .mobile-utility-bar{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:7px;margin:8px 0 12px;padding:0 1px;position:relative;z-index:24}
+  .mobile-utility-btn{appearance:none;min-width:0;min-height:40px;display:flex!important;align-items:center;justify-content:center;gap:5px;border:1px solid rgba(121,160,255,.16)!important;border-radius:11px!important;background:linear-gradient(180deg,rgba(13,23,43,.86),rgba(7,13,27,.90))!important;color:#9eb1d2!important;padding:8px 7px!important;font:inherit!important;font-size:.69rem!important;font-weight:850!important;line-height:1!important;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)!important}
   .mobile-utility-btn b{font-size:.82rem;color:#c9eaff;font-weight:900}
   .mobile-utility-btn:hover,.mobile-utility-btn:active,.mobile-utility-btn.active{color:#eefaff!important;border-color:rgba(124,230,255,.34)!important;background:linear-gradient(180deg,rgba(22,43,68,.95),rgba(10,23,43,.96))!important;box-shadow:0 0 15px rgba(124,230,255,.07)!important}
   .mobile-settings-utility{margin-left:0!important}
@@ -22,6 +22,11 @@ body[data-vault-theme="neon"] .friend-user-self>span{border-color:rgba(57,255,21
   body[data-vault-theme="neon"] .mobile-utility-btn{border-color:rgba(57,255,216,.18)!important;background:linear-gradient(180deg,rgba(10,24,30,.90),rgba(8,9,20,.94))!important;color:#8bcfc5!important;box-shadow:-1px 0 8px rgba(255,60,247,.025),1px 0 10px rgba(57,255,216,.035)!important}
   body[data-vault-theme="neon"] .mobile-utility-btn b{color:#82ffe9}
   body[data-vault-theme="neon"] .mobile-utility-btn:hover,body[data-vault-theme="neon"] .mobile-utility-btn:active,body[data-vault-theme="neon"] .mobile-utility-btn.active{color:#bafff2!important;border-color:rgba(57,255,216,.42)!important;background:linear-gradient(180deg,rgba(16,45,48,.96),rgba(8,20,28,.98))!important;box-shadow:-2px 0 10px rgba(255,60,247,.07),2px 0 14px rgba(57,255,216,.10)!important}
+
+  /* Settings becomes a comfortable mobile sheet above the fixed navigation. */
+  #uxSettings.settings-popover{left:8px!important;right:8px!important;top:auto!important;bottom:82px!important;width:auto!important;max-height:min(72vh,620px)!important;overflow:auto!important;padding:14px!important;border-radius:18px!important;z-index:7300!important;overscroll-behavior:contain}
+  .settings-head{position:sticky;top:-14px;z-index:2;margin:-14px -14px 10px;padding:14px 14px 8px;background:linear-gradient(180deg,rgba(11,19,39,.995),rgba(11,19,39,.94),rgba(11,19,39,0))}
+  body[data-vault-theme="neon"] #uxSettings.settings-popover{background:linear-gradient(180deg,rgba(7,16,24,.995),rgba(5,7,17,.995))!important;border-color:rgba(57,255,216,.26)!important}
 
   /* Friend browser gets clearer mobile profile switching controls. */
   .friend-header{grid-template-columns:1fr!important;gap:9px!important}

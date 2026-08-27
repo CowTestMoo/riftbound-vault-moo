@@ -1,5 +1,5 @@
-const CACHE='riftbound-vault-shell-v14';
-const SHELL=['./','./index.html','./styles.css','./cosmic-effects.css','./polish.css','./cosmic-cleanup.css','./ux.css','./rune-sound.css','./vault-features.css','./invite-lock.css','./spreadsheet-import.css','./cosmic.js','./polish.js','./ux.js','./rune-sound.js','./dashboard-toggles.js','./app.js','./app-bridge.js','./cloud-sync.js','./invite-lock.js','./vault-features.js','./spreadsheet-import.js','./manifest.json','./icon.svg'];
+const CACHE='riftbound-vault-shell-v15';
+const SHELL=['./','./index.html','./styles.css','./cosmic-effects.css','./polish.css','./cosmic-cleanup.css','./ux.css','./rune-sound.css','./vault-features.css','./invite-lock.css','./spreadsheet-import.css','./cosmic.js','./polish.js','./ux.js','./rune-sound.js','./dashboard-toggles.js','./app.js','./app-bridge.js','./auth-session-pref.js','./cloud-sync.js','./invite-lock.js','./vault-features.js','./spreadsheet-import.js','./manifest.json','./icon.svg'];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();

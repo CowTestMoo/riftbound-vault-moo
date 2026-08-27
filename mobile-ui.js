@@ -22,19 +22,36 @@
     const nav=document.getElementById('mobileNav');
     if(!nav)return null;
     document.getElementById('mobileToolsUtilityBtn')?.remove();
-    let tools=nav.querySelector('[data-mobile-tab="tools"]');
+
+    /* Keep the legacy Tools mobile-tab node hidden so vault-features does not recreate it. */
+    let legacy=nav.querySelector('[data-mobile-tab="tools"]');
+    if(!legacy){
+      legacy=document.createElement('button');
+      legacy.type='button';
+      legacy.dataset.mobileTab='tools';
+      legacy.innerHTML='<b>✦</b>Tools';
+      nav.appendChild(legacy);
+    }
+    legacy.classList.add('mobile-tools-legacy');
+    legacy.setAttribute('aria-hidden','true');
+    legacy.tabIndex=-1;
+
+    let tools=document.getElementById('mobileToolsCenterBtn');
     if(!tools){
       tools=document.createElement('button');
+      tools.id='mobileToolsCenterBtn';
       tools.type='button';
-      tools.dataset.mobileTab='tools';
-      tools.innerHTML='<b>✦</b>Tools';
+      tools.dataset.mobileTools='1';
+      tools.className='mobile-tools-center';
+      tools.setAttribute('aria-label','Open Vault Tools');
+      tools.innerHTML='<b>✦</b><span>Tools</span>';
     }
-    tools.classList.add('mobile-tools-center');
+
     const cards=nav.querySelector('[data-mobile-tab="cards"]');
     const storage=nav.querySelector('[data-mobile-tab="storage"]');
     const decks=nav.querySelector('[data-mobile-tab="decks"]');
     const loans=nav.querySelector('[data-mobile-tab="loans"]');
-    [cards,storage,tools,decks,loans].filter(Boolean).forEach(x=>nav.appendChild(x));
+    [cards,storage,tools,decks,loans,legacy].filter(Boolean).forEach(x=>nav.appendChild(x));
     return tools;
   }
 
@@ -80,6 +97,12 @@
       b.classList.toggle('active',on);
       if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
     });
+    const tools=document.getElementById('mobileToolsCenterBtn');
+    if(tools){
+      const on=active==='tools';
+      tools.classList.toggle('active',on);
+      if(on)tools.setAttribute('aria-current','page');else tools.removeAttribute('aria-current');
+    }
   }
 
   function apply(){
@@ -95,7 +118,7 @@
   }
 
   document.addEventListener('click',e=>{
-    if(e.target.closest('.tab,[data-mobile-tab]'))setTimeout(syncActive,0);
+    if(e.target.closest('.tab,[data-mobile-tab],#mobileToolsCenterBtn'))setTimeout(syncActive,0);
   },true);
   window.addEventListener('riftbound-social-ready',()=>setTimeout(apply,0));
   window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(apply,80));

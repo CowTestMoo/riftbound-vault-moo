@@ -13,9 +13,27 @@ let state = loadState();
 const $ = id => document.getElementById(id);
 const qsa = (s,r=document) => [...r.querySelectorAll(s)];
 
+function defaultStorageBoxes(){
+  return DOMAINS.flatMap((domain,i)=>[
+    {id:`box-${i*2+1}`,name:`Box ${i*2+1}`,domains:[domain],rule:'Units'},
+    {id:`box-${i*2+2}`,name:`Box ${i*2+2}`,domains:[domain],rule:'Other'}
+  ]);
+}
+function normalizeStorageBoxes(value){
+  if(!Array.isArray(value)) return defaultStorageBoxes();
+  return value.map((box,i)=>({
+    id:String(box?.id||`box-${i+1}-${Math.random().toString(36).slice(2,6)}`),
+    name:String(box?.name||`Box ${i+1}`),
+    domains:Array.isArray(box?.domains)?box.domains.filter(d=>DOMAINS.includes(d)):[],
+    rule:['All','Units','Other','Champions','Spells','Gear','Runes','Battlefields','Tokens'].includes(box?.rule)?box.rule:'All'
+  }));
+}
 function loadState(){
-  try { return {inventory:{},decks:[],loans:[],transactions:[],...JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}; }
-  catch { return {inventory:{},decks:[],loans:[],transactions:[]}; }
+  try {
+    const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+    return {inventory:{},decks:[],loans:[],transactions:[],...parsed,storageBoxes:normalizeStorageBoxes(parsed.storageBoxes)};
+  }
+  catch { return {inventory:{},decks:[],loans:[],transactions:[],storageBoxes:defaultStorageBoxes()}; }
 }
 function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); renderStats(); }
 function esc(v=''){ return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
@@ -35,16 +53,49 @@ function adjustOwned(code,delta,reason='Manual adjustment'){
   saveState(); renderAll();
 }
 
-function locationFor(card){
-  const domain=DOMAINS.find(d=>(card.domains||[]).includes(d)) || (DOMAINS.includes(card.domain)?card.domain:'Unassigned');
-  const i=DOMAINS.indexOf(domain);
-  if(i<0) return {box:null,domain,bucket:'Unassigned',section:card.cardType||'Other'};
+function cardDomain(card){
+  return DOMAINS.find(d=>(card.domains||[]).includes(d)) || (DOMAINS.includes(card.domain)?card.domain:'Unassigned');
+}
+function cardStorageClass(card){
   const labels=(card.cardTypeLabels||[]).map(norm);
   const isChampion=labels.includes('champion');
-  const isUnit=norm(card.cardType)==='unit'&&!isChampion;
-  const box=i*2+(isUnit?1:2);
-  const section=isUnit?`Energy ${Number(card.energy)>=6?'6+':(card.energy??'?')}`:(isChampion?'Champions':(card.cardType||'Other'));
-  return {box,domain,bucket:isUnit?'Units':'Other',section};
+  const type=norm(card.cardType);
+  const isUnit=type==='unit'&&!isChampion;
+  if(isUnit) return 'Units';
+  if(isChampion) return 'Champions';
+  if(type==='spell') return 'Spells';
+  if(type==='gear') return 'Gear';
+  if(type==='rune') return 'Runes';
+  if(type==='battlefield') return 'Battlefields';
+  if(type==='token') return 'Tokens';
+  return 'Other';
+}
+function storageRuleMatches(box,card){
+  const domain=cardDomain(card);
+  const domainMatch=!box.domains?.length||box.domains.includes(domain);
+  if(!domainMatch) return false;
+  const cls=cardStorageClass(card);
+  if(box.rule==='All') return true;
+  if(box.rule==='Other') return cls!=='Units';
+  return box.rule===cls;
+}
+function sectionFor(card){
+  const cls=cardStorageClass(card);
+  if(cls==='Units') return `Energy ${Number(card.energy)>=6?'6+':(card.energy??'?')}`;
+  return cls;
+}
+function locationFor(card){
+  const domain=cardDomain(card);
+  const boxes=normalizeStorageBoxes(state.storageBoxes);
+  const index=boxes.findIndex(box=>storageRuleMatches(box,card));
+  if(index<0) return {box:null,boxId:null,boxName:'Unassigned',domain,bucket:'Unassigned',section:sectionFor(card)};
+  const box=boxes[index];
+  return {box:index+1,boxId:box.id,boxName:box.name,domain,bucket:box.rule,section:sectionFor(card)};
+}
+function describeStorageBox(box){
+  const domainText=box.domains?.length?box.domains.join(' + '):'Any domain';
+  const ruleText=box.rule==='All'?'All cards':box.rule==='Other'?'Non-unit cards':box.rule;
+  return `${domainText} • ${ruleText}`;
 }
 
 async function loadCatalog(){
@@ -102,14 +153,14 @@ function renderStats(){
   $('statOwned').textContent=total; $('statUnique').textContent=unique; $('statDecks').textContent=d; $('statLoans').textContent=l; $('statAvailable').textContent=Math.max(0,total-d-l);
 }
 function renderStorage(){
+  const boxes=normalizeStorageBoxes(state.storageBoxes);
   let html='';
-  DOMAINS.forEach((domain,i)=>['Units','Other'].forEach((bucket,j)=>{
-    const box=i*2+j+1;
-    const cards=catalog.filter(c=>locationFor(c).box===box&&available(c.cardCode)>0);
+  boxes.forEach((box,i)=>{
+    const cards=catalog.filter(c=>locationFor(c).boxId===box.id&&available(c.cardCode)>0);
     const count=cards.reduce((s,c)=>s+available(c.cardCode),0);
-    html+=`<button class="storage-box" data-box="${box}"><div class="storage-top"><span class="storage-number">BOX ${String(box).padStart(2,'0')}</span><span class="storage-count">${count} cards</span></div><h3>${domain} ${bucket}</h3><p>${cards.length} unique cards</p></button>`;
-  }));
-  $('storageGrid').innerHTML=html;
+    html+=`<button class="storage-box" data-box="${esc(box.id)}"><div class="storage-top"><span class="storage-number">POSITION ${String(i+1).padStart(2,'0')}</span><span class="storage-count">${count} cards</span></div><h3>${esc(box.name)}</h3><p>${esc(describeStorageBox(box))}</p><small>${cards.length} unique cards</small></button>`;
+  });
+  $('storageGrid').innerHTML=html||'<div class="empty-state">No storage boxes configured yet. Use Customize Storage to add one.</div>';
 }
 function renderDecks(){ $('deckList').innerHTML=state.decks.length?state.decks.map(d=>`<div class="list-card"><h3>${esc(d.name)}</h3></div>`).join(''):'<div class="empty-state">No decks yet.</div>'; }
 function renderLoans(){ $('loanList').innerHTML=state.loans.filter(l=>!l.returnedAt).length?state.loans.filter(l=>!l.returnedAt).map(l=>`<div class="list-card"><h3>${esc(l.borrower)}</h3><p>${esc(nameOf(byCode.get(l.cardCode)||{cardCode:l.cardCode}))} ×${l.qty}</p></div>`).join(''):'<div class="empty-state">Nothing is currently loaned out.</div>'; }
@@ -118,12 +169,13 @@ function renderAll(){ renderFilters(); renderCards(); renderStats(); renderStora
 function showCard(code){
   const c=byCode.get(code); if(!c) return;
   const loc=locationFor(c);
-  $('cardDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>${esc(nameOf(c))}</h2><button class="close-btn" data-close="cardDialog">×</button></div><div class="detail-layout"><div>${c.imageUrl?`<img class="detail-image" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:'<div class="detail-image card-placeholder">No image</div>'}</div><div><div class="detail-meta">${esc(c.cardSet)} • ${esc(c.cardType)} • ${esc((c.domains||[]).join(' / '))}</div><div class="info-grid"><div class="info-cell"><strong>${owned(code)}</strong><small>Total owned</small></div><div class="info-cell"><strong>${available(code)}</strong><small>Available</small></div><div class="info-cell"><strong>${decked(code)}</strong><small>In decks</small></div><div class="info-cell"><strong>${loaned(code)}</strong><small>Loaned</small></div></div><div class="location-callout"><strong>Store in:</strong><br>${loc.box?`Box ${loc.box} • ${esc(loc.domain)} ${esc(loc.bucket)} • ${esc(loc.section)}`:'Unassigned'}</div><div class="modal-actions"><button class="primary-btn" data-adjust="1" data-code="${esc(code)}">+1</button><button class="primary-btn" data-adjust="4" data-code="${esc(code)}">+4</button><button class="primary-btn" data-adjust="10" data-code="${esc(code)}">+10</button><button class="ghost-btn" data-adjust="-1" data-code="${esc(code)}">−1</button></div></div></div></div>`;
+  $('cardDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>${esc(nameOf(c))}</h2><button class="close-btn" data-close="cardDialog">×</button></div><div class="detail-layout"><div>${c.imageUrl?`<img class="detail-image" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:'<div class="detail-image card-placeholder">No image</div>'}</div><div><div class="detail-meta">${esc(c.cardSet)} • ${esc(c.cardType)} • ${esc((c.domains||[]).join(' / '))}</div><div class="info-grid"><div class="info-cell"><strong>${owned(code)}</strong><small>Total owned</small></div><div class="info-cell"><strong>${available(code)}</strong><small>Available</small></div><div class="info-cell"><strong>${decked(code)}</strong><small>In decks</small></div><div class="info-cell"><strong>${loaned(code)}</strong><small>Loaned</small></div></div><div class="location-callout"><strong>Store in:</strong><br>${loc.box?`${esc(loc.boxName)} • Position ${loc.box} • ${esc(loc.section)}`:'Unassigned • customize Storage to choose a destination'}</div><div class="modal-actions"><button class="primary-btn" data-adjust="1" data-code="${esc(code)}">+1</button><button class="primary-btn" data-adjust="4" data-code="${esc(code)}">+4</button><button class="primary-btn" data-adjust="10" data-code="${esc(code)}">+10</button><button class="ghost-btn" data-adjust="-1" data-code="${esc(code)}">−1</button></div></div></div></div>`;
   $('cardDialog').showModal();
 }
-function showBox(box){
-  const cards=catalog.filter(c=>locationFor(c).box===box&&available(c.cardCode)>0);
-  $('storageDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Box ${box}</h2><button class="close-btn" data-close="storageDialog">×</button></div>${cards.length?`<div class="card-lines">${cards.map(c=>`<div class="card-line"><span>${esc(locationFor(c).section)} • ${esc(nameOf(c))}</span><strong>×${available(c.cardCode)}</strong></div>`).join('')}</div>`:'<div class="empty-state">No cards here yet.</div>'}</div>`;
+function showBox(boxId){
+  const boxes=normalizeStorageBoxes(state.storageBoxes),box=boxes.find(b=>b.id===boxId);if(!box)return;
+  const cards=catalog.filter(c=>locationFor(c).boxId===box.id&&available(c.cardCode)>0);
+  $('storageDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><div><h2>${esc(box.name)}</h2><p class="detail-meta">Position ${boxes.indexOf(box)+1} • ${esc(describeStorageBox(box))}</p></div><button class="close-btn" data-close="storageDialog">×</button></div>${cards.length?`<div class="card-lines">${cards.map(c=>`<div class="card-line"><span>${esc(locationFor(c).section)} • ${esc(nameOf(c))}</span><strong>×${available(c.cardCode)}</strong></div>`).join('')}</div>`:'<div class="empty-state">No cards route here yet.</div>'}</div>`;
   $('storageDialog').showModal();
 }
 function openBulk(){
@@ -146,7 +198,7 @@ function wireEvents(){
     if(x=e.target.closest('[data-card]')) return showCard(x.dataset.card);
     if(x=e.target.closest('[data-close]')) return $(x.dataset.close)?.close();
     if(x=e.target.closest('[data-adjust]')){ const code=x.dataset.code; adjustOwned(code,Number(x.dataset.adjust)); return showCard(code); }
-    if(x=e.target.closest('[data-box]')) return showBox(Number(x.dataset.box));
+    if(x=e.target.closest('[data-box]')) return showBox(x.dataset.box);
     if(x=e.target.closest('[data-bulk]')){ adjustOwned(x.dataset.code,Number(x.dataset.bulk),'Bulk entry'); return renderBulk($('bulkSearch')?.value||''); }
   });
   $('cardSearch').addEventListener('input',e=>{ filters.search=e.target.value; visibleCount=PAGE_SIZE; renderCards(); });

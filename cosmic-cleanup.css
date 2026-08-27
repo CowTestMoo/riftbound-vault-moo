@@ -1,0 +1,12 @@
+/* Cosmic cleanup after dragon removal */
+.topbar{min-height:0!important;padding:17px 20px!important}
+.brand-wrap{min-width:0!important;align-self:auto!important;width:auto!important;max-width:72%}
+.brand-copy{padding:2px 0 3px!important}
+.vault-title-line h1{font-size:clamp(1.85rem,4.3vw,3.25rem)!important}
+.vault-subtitle{margin-top:6px!important}
+#catalogStatus{margin-top:6px!important}
+.title-constellation,.dragon-stage,.celestial-dragon{display:none!important}
+#exportBtn{align-self:center!important;margin-top:0!important}
+.topbar::after{width:38%!important;height:150%!important;right:-8%!important;top:-30%!important;opacity:.7}
+@media(max-width:620px){.topbar{min-height:0!important}.brand-wrap{width:auto!important;max-width:72%!important}.vault-subtitle{display:block!important}.vault-title-line h1{font-size:1.72rem!important}}
+@media(max-width:430px){.brand-wrap{max-width:70%!important}.vault-subtitle{font-size:.56rem!important;letter-spacing:.12em!important}}

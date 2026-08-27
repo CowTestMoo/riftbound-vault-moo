@@ -2,6 +2,7 @@
   'use strict';
 
   let transitionLock=false;
+  let friendListObserver=null;
 
   function theme(){return document.body?.dataset?.vaultTheme==='neon'?'neon':'cosmic'}
 
@@ -38,14 +39,30 @@
 
   function ownUserId(){return window.RiftboundCloud?.getSession?.()?.user?.id||''}
 
-  /* Window capture runs before the library's document handlers, so home gets one clean transition. */
+  function removeOwnProfileFromBrowser(){
+    const me=ownUserId();
+    if(!me)return;
+    document.querySelectorAll(`[data-friend-user="${CSS.escape(me)}"]`).forEach(row=>row.remove());
+  }
+
+  function watchFriendList(){
+    const list=document.getElementById('friendUserList');
+    if(!list||list.dataset.selfHideWatch==='1')return;
+    list.dataset.selfHideWatch='1';
+    friendListObserver?.disconnect();
+    friendListObserver=new MutationObserver(removeOwnProfileFromBrowser);
+    friendListObserver.observe(list,{childList:true});
+    removeOwnProfileFromBrowser();
+  }
+
+  /* Window capture runs before the library's document handlers. The self-row guard is defensive only. */
   window.addEventListener('click',e=>{
     const back=e.target.closest?.('#friendBackBtn');
     if(back){e.preventDefault();e.stopImmediatePropagation();returnToOwnVault();return}
 
     const row=e.target.closest?.('[data-friend-user]');
     if(row&&row.dataset.friendUser===ownUserId()){
-      e.preventDefault();e.stopImmediatePropagation();returnToOwnVault();
+      e.preventDefault();e.stopImmediatePropagation();row.remove();
     }
   },true);
 
@@ -54,19 +71,18 @@
     const another=document.getElementById('friendBrowseAnother');
     if(back)back.textContent='← My Vault';
     if(another)another.textContent='Switch Profile';
-
-    const me=ownUserId();
-    if(me){
-      const row=document.querySelector(`[data-friend-user="${CSS.escape(me)}"]`);
-      if(row){
-        row.classList.add('friend-user-self');
-        const small=row.querySelector('small');
-        if(small&&!small.dataset.selfLabel){small.dataset.selfLabel='1';small.textContent=`Your vault · ${small.textContent}`}
-      }
-    }
+    watchFriendList();
+    removeOwnProfileFromBrowser();
   }
 
-  document.addEventListener('click',e=>{if(e.target.closest('#friendBrowseAnother'))setTimeout(polishProfileControls,0)});
+  document.addEventListener('click',e=>{
+    if(e.target.closest('#friendBrowseAnother,#browseLibrariesUtilityBtn,#mobileFriendProfileBtn')){
+      setTimeout(polishProfileControls,0);
+      setTimeout(polishProfileControls,250);
+      setTimeout(polishProfileControls,700);
+    }
+  });
+  document.addEventListener('input',e=>{if(e.target.id==='friendUserSearch')setTimeout(removeOwnProfileFromBrowser,0)});
   window.addEventListener('riftbound-social-ready',()=>setTimeout(polishProfileControls,20));
   window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(polishProfileControls,80));
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(polishProfileControls,250),{once:true});

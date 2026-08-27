@@ -9,9 +9,21 @@ let byCode = new Map();
 let visibleCount = PAGE_SIZE;
 let filters = {search:'',type:'All',domain:'All',set:'All',ownedOnly:false};
 let state = loadState();
+let renderSignalFrame=0;
+const renderSignalScopes=new Set();
 
 const $ = id => document.getElementById(id);
 const qsa = (s,r=document) => [...r.querySelectorAll(s)];
+
+function signalUi(scope){
+  if(scope)renderSignalScopes.add(scope);
+  if(renderSignalFrame)return;
+  renderSignalFrame=requestAnimationFrame(()=>{
+    renderSignalFrame=0;
+    const scopes=[...renderSignalScopes];renderSignalScopes.clear();
+    window.dispatchEvent(new CustomEvent('riftbound-ui-render',{detail:{scopes}}));
+  });
+}
 
 function defaultStorageBoxes(){
   return DOMAINS.flatMap((domain,i)=>[
@@ -35,7 +47,7 @@ function loadState(){
   }
   catch { return {inventory:{},decks:[],loans:[],transactions:[],storageBoxes:defaultStorageBoxes()}; }
 }
-function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); renderStats(); }
+function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); signalUi('state'); renderStats(); }
 function esc(v=''){ return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function norm(v=''){ return String(v).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,''); }
 function nameOf(c){ return c?.fullName || c?.name || c?.cardCode || 'Unknown card'; }
@@ -114,6 +126,7 @@ async function loadCatalog(){
     console.error(err);
     $('catalogStatus').textContent=`Catalog error: ${err.message}`;
     $('cardGrid').innerHTML='<div class="empty-state">The card catalog failed to load. The page itself is working, but the data request failed.</div>';
+    signalUi('cards');
   }
 }
 
@@ -123,6 +136,7 @@ function renderFilters(){
   $('domainFilters').innerHTML=['All',...DOMAINS].map(v=>chip(v,filters.domain===v,'domain')).join('');
   const sets=[...new Set(catalog.map(c=>c.cardSet).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   $('setFilters').innerHTML=['All',...sets].map(v=>chip(v,filters.set===v,'set')).join('');
+  signalUi('filters');
 }
 function filteredCards(){
   const search=norm(filters.search);
@@ -143,6 +157,7 @@ function renderCards(){
   const cards=filteredCards(), shown=cards.slice(0,visibleCount);
   $('cardGrid').innerHTML=shown.length?shown.map(cardTile).join(''):'<div class="empty-state">No cards match these filters.</div>';
   $('loadMoreBtn').hidden=cards.length<=visibleCount;
+  signalUi('cards');
 }
 function renderStats(){
   const codes=Object.keys(state.inventory);
@@ -151,6 +166,7 @@ function renderStats(){
   const d=state.decks.reduce((s,x)=>s+Object.values(x.cards||{}).reduce((a,b)=>a+Number(b||0),0),0);
   const l=state.loans.filter(x=>!x.returnedAt).reduce((s,x)=>s+Number(x.qty||0),0);
   $('statOwned').textContent=total; $('statUnique').textContent=unique; $('statDecks').textContent=d; $('statLoans').textContent=l; $('statAvailable').textContent=Math.max(0,total-d-l);
+  signalUi('stats');
 }
 function renderStorage(){
   const boxes=normalizeStorageBoxes(state.storageBoxes);
@@ -161,9 +177,10 @@ function renderStorage(){
     html+=`<button class="storage-box" data-box="${esc(box.id)}"><div class="storage-top"><span class="storage-number">POSITION ${String(i+1).padStart(2,'0')}</span><span class="storage-count">${count} cards</span></div><h3>${esc(box.name)}</h3><p>${esc(describeStorageBox(box))}</p><small>${cards.length} unique cards</small></button>`;
   });
   $('storageGrid').innerHTML=html||'<div class="empty-state">No storage boxes configured yet. Use Customize Storage to add one.</div>';
+  signalUi('storage');
 }
-function renderDecks(){ $('deckList').innerHTML=state.decks.length?state.decks.map(d=>`<div class="list-card"><h3>${esc(d.name)}</h3></div>`).join(''):'<div class="empty-state">No decks yet.</div>'; }
-function renderLoans(){ $('loanList').innerHTML=state.loans.filter(l=>!l.returnedAt).length?state.loans.filter(l=>!l.returnedAt).map(l=>`<div class="list-card"><h3>${esc(l.borrower)}</h3><p>${esc(nameOf(byCode.get(l.cardCode)||{cardCode:l.cardCode}))} ×${l.qty}</p></div>`).join(''):'<div class="empty-state">Nothing is currently loaned out.</div>'; }
+function renderDecks(){ $('deckList').innerHTML=state.decks.length?state.decks.map(d=>`<div class="list-card"><h3>${esc(d.name)}</h3></div>`).join(''):'<div class="empty-state">No decks yet.</div>'; signalUi('decks'); }
+function renderLoans(){ $('loanList').innerHTML=state.loans.filter(l=>!l.returnedAt).length?state.loans.filter(l=>!l.returnedAt).map(l=>`<div class="list-card"><h3>${esc(l.borrower)}</h3><p>${esc(nameOf(byCode.get(l.cardCode)||{cardCode:l.cardCode}))} ×${l.qty}</p></div>`).join(''):'<div class="empty-state">Nothing is currently loaned out.</div>'; signalUi('loans'); }
 function renderAll(){ renderFilters(); renderCards(); renderStats(); renderStorage(); renderDecks(); renderLoans(); }
 
 function showCard(code){
@@ -171,12 +188,14 @@ function showCard(code){
   const loc=locationFor(c);
   $('cardDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>${esc(nameOf(c))}</h2><button class="close-btn" data-close="cardDialog">×</button></div><div class="detail-layout"><div>${c.imageUrl?`<img class="detail-image" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:'<div class="detail-image card-placeholder">No image</div>'}</div><div><div class="detail-meta">${esc(c.cardSet)} • ${esc(c.cardType)} • ${esc((c.domains||[]).join(' / '))}</div><div class="info-grid"><div class="info-cell"><strong>${owned(code)}</strong><small>Total owned</small></div><div class="info-cell"><strong>${available(code)}</strong><small>Available</small></div><div class="info-cell"><strong>${decked(code)}</strong><small>In decks</small></div><div class="info-cell"><strong>${loaned(code)}</strong><small>Loaned</small></div></div><div class="location-callout"><strong>Store in:</strong><br>${loc.box?`${esc(loc.boxName)} • Position ${loc.box} • ${esc(loc.section)}`:'Unassigned • customize Storage to choose a destination'}</div><div class="modal-actions"><button class="primary-btn" data-adjust="1" data-code="${esc(code)}">+1</button><button class="primary-btn" data-adjust="4" data-code="${esc(code)}">+4</button><button class="primary-btn" data-adjust="10" data-code="${esc(code)}">+10</button><button class="ghost-btn" data-adjust="-1" data-code="${esc(code)}">−1</button></div></div></div></div>`;
   $('cardDialog').showModal();
+  signalUi('card-dialog');
 }
 function showBox(boxId){
   const boxes=normalizeStorageBoxes(state.storageBoxes),box=boxes.find(b=>b.id===boxId);if(!box)return;
   const cards=catalog.filter(c=>locationFor(c).boxId===box.id&&available(c.cardCode)>0);
   $('storageDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><div><h2>${esc(box.name)}</h2><p class="detail-meta">Position ${boxes.indexOf(box)+1} • ${esc(describeStorageBox(box))}</p></div><button class="close-btn" data-close="storageDialog">×</button></div>${cards.length?`<div class="card-lines">${cards.map(c=>`<div class="card-line"><span>${esc(locationFor(c).section)} • ${esc(nameOf(c))}</span><strong>×${available(c.cardCode)}</strong></div>`).join('')}</div>`:'<div class="empty-state">No cards route here yet.</div>'}</div>`;
   $('storageDialog').showModal();
+  signalUi('storage-dialog');
 }
 function openBulk(){
   $('bulkDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Bulk Add</h2><button class="close-btn" data-close="bulkDialog">×</button></div><div class="search-wrap"><input id="bulkSearch" placeholder="Search card"></div><div id="bulkResults" class="bulk-results"></div></div>`;
@@ -187,7 +206,7 @@ function renderBulk(text){
   const matches=catalog.filter(c=>norm(nameOf(c)).includes(norm(text))).slice(0,60);
   $('bulkResults').innerHTML=matches.map(c=>`<div class="bulk-row"><div>${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}</div><div><strong>${esc(nameOf(c))}</strong><br><small>Owned ${owned(c.cardCode)}</small></div><div class="bulk-buttons"><button data-bulk="1" data-code="${esc(c.cardCode)}">+1</button><button data-bulk="4" data-code="${esc(c.cardCode)}">+4</button><button data-bulk="10" data-code="${esc(c.cardCode)}">+10</button></div></div>`).join('');
 }
-function switchTab(tab){ qsa('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); qsa('.view').forEach(v=>v.classList.remove('active')); $(`${tab}View`)?.classList.add('active'); }
+function switchTab(tab){ qsa('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); qsa('.view').forEach(v=>v.classList.remove('active')); $(`${tab}View`)?.classList.add('active'); signalUi('tab'); }
 function exportBackup(){ const b=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),state},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`riftbound-vault-backup-${new Date().toISOString().slice(0,10)}.json`; a.click(); }
 
 function wireEvents(){

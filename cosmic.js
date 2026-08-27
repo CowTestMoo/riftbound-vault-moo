@@ -3,7 +3,6 @@
 
   const canvas = document.getElementById('cosmicSky');
   if (!canvas) return;
-
   const ctx = canvas.getContext('2d', { alpha: true });
   if (!ctx) return;
 
@@ -19,15 +18,69 @@
   let nextShooter = last + 1800;
   let hidden = document.hidden;
 
-  const constellations = [
-    { color:[124,230,255], phase:.3, speed:.00011, points:[[.05,.16],[.11,.10],[.17,.18],[.23,.13],[.29,.22],[.35,.15],[.41,.21]], links:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[2,5]] },
-    { color:[255,225,159], phase:1.7, speed:-.00008, points:[[.56,.14],[.63,.08],[.69,.15],[.77,.10],[.83,.19],[.90,.14]], links:[[0,1],[1,2],[2,3],[3,4],[4,5],[1,4]] },
-    { color:[121,160,255], phase:2.8, speed:.000065, points:[[.10,.68],[.18,.62],[.25,.71],[.32,.65],[.40,.74],[.47,.66],[.54,.76]], links:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[1,3],[3,5]] },
-    { color:[124,230,255], phase:4.1, speed:-.000055, points:[[.63,.59],[.70,.52],[.77,.60],[.84,.53],[.91,.64],[.82,.70],[.73,.67]], links:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,0],[2,6]] },
-    { color:[255,225,159], phase:5.0, speed:.000075, points:[[.20,.39],[.25,.34],[.31,.41],[.37,.36],[.43,.44]], links:[[0,1],[1,2],[2,3],[3,4],[0,2]] },
-    { color:[121,160,255], phase:.95, speed:-.00007, points:[[.69,.34],[.75,.29],[.81,.35],[.87,.31],[.93,.38]], links:[[0,1],[1,2],[2,3],[3,4],[1,3]] },
-    { color:[124,230,255], phase:3.6, speed:.00005, points:[[.38,.50],[.44,.46],[.50,.51],[.56,.47],[.62,.53]], links:[[0,1],[1,2],[2,3],[3,4],[0,2],[2,4]] },
-    { color:[255,225,159], phase:2.2, speed:-.000045, points:[[.29,.86],[.35,.81],[.42,.87],[.49,.82],[.56,.88]], links:[[0,1],[1,2],[2,3],[3,4],[1,3]] }
+  const realConstellations = [
+    {
+      name:'Orion', color:[124,230,255], phase:.3, speed:.000032,
+      box:{x:.06,y:.12,w:.31,h:.34},
+      stars:[
+        {ra:88.8,dec:7.4,mag:.42},{ra:81.3,dec:6.3,mag:1.64},{ra:83.0,dec:.3,mag:2.23},
+        {ra:84.1,dec:-1.2,mag:1.69},{ra:85.2,dec:-1.9,mag:1.77},{ra:78.6,dec:-8.2,mag:.13},{ra:86.9,dec:-9.7,mag:2.09}
+      ],
+      links:[[0,1],[0,4],[1,2],[2,3],[3,4],[2,5],[4,6],[5,6]]
+    },
+    {
+      name:'Cassiopeia', color:[255,225,159], phase:1.4, speed:-.000025,
+      box:{x:.66,y:.08,w:.26,h:.16},
+      stars:[
+        {ra:2.295,dec:59.15,mag:2.27},{ra:10.125,dec:56.54,mag:2.23},{ra:14.175,dec:60.72,mag:2.47},
+        {ra:21.45,dec:60.24,mag:2.68},{ra:28.605,dec:63.67,mag:3.37}
+      ],
+      links:[[0,1],[1,2],[2,3],[3,4]]
+    },
+    {
+      name:'Cygnus', color:[121,160,255], phase:2.7, speed:.000022,
+      box:{x:.68,y:.43,w:.27,h:.34},
+      stars:[
+        {ra:310.365,dec:45.28,mag:1.25},{ra:305.55,dec:40.26,mag:2.23},{ra:311.55,dec:33.97,mag:2.48},
+        {ra:296.25,dec:45.13,mag:2.87},{ra:292.68,dec:27.96,mag:3.08}
+      ],
+      links:[[0,1],[1,4],[3,1],[1,2]]
+    },
+    {
+      name:'Scorpius', color:[124,230,255], phase:4.0, speed:-.000019,
+      box:{x:.04,y:.57,w:.35,h:.29},
+      stars:[
+        {ra:247.35,dec:-26.43,mag:.96},{ra:263.4,dec:-37.10,mag:1.63},{ra:240.09,dec:-22.62,mag:2.32},
+        {ra:241.365,dec:-19.81,mag:2.62},{ra:252.54,dec:-34.29,mag:2.29}
+      ],
+      links:[[3,2],[2,0],[0,4],[4,1]]
+    },
+    {
+      name:'Crux', color:[255,225,159], phase:5.2, speed:.000017,
+      box:{x:.49,y:.72,w:.11,h:.18},
+      stars:[
+        {ra:186.6496,dec:-63.0991,mag:.76},{ra:191.930,dec:-59.6886,mag:1.25},{ra:187.791,dec:-57.1132,mag:1.63},{ra:183.786,dec:-58.7489,mag:2.80}
+      ],
+      links:[[0,2],[3,1]]
+    },
+    {
+      name:'Lyra', color:[121,160,255], phase:.9, speed:-.000021,
+      box:{x:.43,y:.11,w:.14,h:.20},
+      stars:[
+        {ra:279.2347,dec:38.7837,mag:.03},{ra:282.5200,dec:33.3627,mag:3.42},{ra:284.7359,dec:32.6896,mag:3.25},
+        {ra:283.6262,dec:36.8986,mag:4.30},{ra:281.2008,dec:37.5946,mag:5.59}
+      ],
+      links:[[0,4],[4,3],[3,2],[2,1],[1,4]]
+    },
+    {
+      name:'Andromeda', color:[124,230,255], phase:3.5, speed:.000015,
+      box:{x:.34,y:.37,w:.29,h:.15},
+      stars:[
+        {ra:2.10,dec:29.09,mag:2.06},{ra:9.825,dec:30.86,mag:3.27},{ra:17.43,dec:35.62,mag:2.05},
+        {ra:30.975,dec:42.33,mag:2.10},{ra:14.205,dec:38.50,mag:3.86}
+      ],
+      links:[[0,1],[1,2],[2,3],[2,4]]
+    }
   ];
 
   const random = (min,max) => min + Math.random() * (max-min);
@@ -38,7 +91,7 @@
   }
 
   function rebuildStars(){
-    const count=Math.max(220,Math.min(680,Math.round((width*height)/4100)));
+    const count=Math.max(240,Math.min(720,Math.round((width*height)/3900)));
     stars=Array.from({length:count},makeStar);
   }
 
@@ -116,48 +169,71 @@
     }
   }
 
-  function rotatePoint(px,py,cx,cy,angle){
-    const dx=px-cx,dy=py-cy,c=Math.cos(angle),s=Math.sin(angle);
-    return [cx+dx*c-dy*s,cy+dx*s+dy*c];
+  function projectedConstellation(c,time){
+    const meanDec=c.stars.reduce((sum,s)=>sum+s.dec,0)/c.stars.length;
+    const cosDec=Math.cos(meanDec*Math.PI/180);
+    const raw=c.stars.map(s=>({x:s.ra*cosDec,y:-s.dec,mag:s.mag}));
+    const minX=Math.min(...raw.map(p=>p.x)),maxX=Math.max(...raw.map(p=>p.x));
+    const minY=Math.min(...raw.map(p=>p.y)),maxY=Math.max(...raw.map(p=>p.y));
+    const rawW=Math.max(.001,maxX-minX),rawH=Math.max(.001,maxY-minY);
+    const targetW=c.box.w*width,targetH=c.box.h*height;
+    const scale=Math.min(targetW/rawW,targetH/rawH);
+    const usedW=rawW*scale,usedH=rawH*scale;
+    const originX=c.box.x*width+(targetW-usedW)/2;
+    const originY=c.box.y*height+(targetH-usedH)/2;
+    const [globalX,globalY]=sceneDrift(time,.38);
+    const localX=reducedMotion.matches?0:Math.sin(time*.000095+c.phase)*7;
+    const localY=reducedMotion.matches?0:Math.cos(time*.000081+c.phase)*5;
+    const angle=reducedMotion.matches?0:Math.sin(time*c.speed+c.phase)*.018;
+    const cx=originX+usedW/2,cy=originY+usedH/2;
+    const ca=Math.cos(angle),sa=Math.sin(angle);
+    return raw.map(p=>{
+      const px=originX+(p.x-minX)*scale;
+      const py=originY+(p.y-minY)*scale;
+      const dx=px-cx,dy=py-cy;
+      return {x:cx+dx*ca-dy*sa+globalX+localX,y:cy+dx*sa+dy*ca+globalY+localY,mag:p.mag};
+    });
   }
 
   function drawConstellations(time){
     const minSide=Math.min(width,height);
-    const [driftX,driftY]=sceneDrift(time,.45);
-    for(const c of constellations){
-      const angle=reducedMotion.matches?0:Math.sin(time*c.speed+c.phase)*.052;
-      const pulse=reducedMotion.matches ? .52 : .43+.18*Math.sin(time*.001+c.phase);
-      const localX=reducedMotion.matches?0:Math.sin(time*.00012+c.phase)*10;
-      const localY=reducedMotion.matches?0:Math.cos(time*.00010+c.phase)*7;
-      const pts=c.points.map(([x,y])=>{
-        const [rx,ry]=rotatePoint(x,y,.5,.5,angle);
-        return [rx*width+driftX+localX,ry*height+driftY+localY];
-      });
+    for(const c of realConstellations){
+      const pulse=reducedMotion.matches?.52:.43+.16*Math.sin(time*.001+c.phase);
+      const pts=projectedConstellation(c,time);
       ctx.lineWidth=Math.max(.65,minSide/1250);
-      ctx.strokeStyle=`rgba(${c.color[0]},${c.color[1]},${c.color[2]},${pulse*.43})`;
-      ctx.shadowBlur=9;
-      ctx.shadowColor=`rgba(${c.color[0]},${c.color[1]},${c.color[2]},.26)`;
+      ctx.strokeStyle=`rgba(${c.color[0]},${c.color[1]},${c.color[2]},${pulse*.42})`;
+      ctx.shadowBlur=8;
+      ctx.shadowColor=`rgba(${c.color[0]},${c.color[1]},${c.color[2]},.22)`;
       for(const [a,b] of c.links){
         ctx.beginPath();
-        ctx.moveTo(pts[a][0],pts[a][1]);
-        ctx.lineTo(pts[b][0],pts[b][1]);
+        ctx.moveTo(pts[a].x,pts[a].y);
+        ctx.lineTo(pts[b].x,pts[b].y);
         ctx.stroke();
       }
       ctx.shadowBlur=0;
-      pts.forEach(([x,y],i)=>{
-        const glow=3.4+(i%3)*1.25;
-        const halo=ctx.createRadialGradient(x,y,0,x,y,glow*4.5);
-        halo.addColorStop(0,`rgba(${c.color[0]},${c.color[1]},${c.color[2]},${.24+pulse*.27})`);
+      pts.forEach((p,i)=>{
+        const magFactor=Math.max(.72,Math.min(1.7,1.65-(p.mag||2)*.18));
+        const glow=(3.2+(i%3)*.8)*magFactor;
+        const halo=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,glow*4.4);
+        halo.addColorStop(0,`rgba(${c.color[0]},${c.color[1]},${c.color[2]},${.24+pulse*.26})`);
         halo.addColorStop(1,`rgba(${c.color[0]},${c.color[1]},${c.color[2]},0)`);
         ctx.fillStyle=halo;
         ctx.beginPath();
-        ctx.arc(x,y,glow*4.5,0,Math.PI*2);
+        ctx.arc(p.x,p.y,glow*4.4,0,Math.PI*2);
         ctx.fill();
-        ctx.fillStyle=`rgba(${c.color[0]},${c.color[1]},${c.color[2]},${.76+pulse*.22})`;
+        ctx.fillStyle=`rgba(${c.color[0]},${c.color[1]},${c.color[2]},${.78+pulse*.18})`;
         ctx.beginPath();
-        ctx.arc(x,y,1.4+(i%2)*.6,0,Math.PI*2);
+        ctx.arc(p.x,p.y,(1.25+(i%2)*.45)*magFactor,0,Math.PI*2);
         ctx.fill();
       });
+      if(width>900){
+        const left=Math.min(...pts.map(p=>p.x));
+        const top=Math.min(...pts.map(p=>p.y));
+        ctx.font='600 9px Inter, system-ui, sans-serif';
+        ctx.letterSpacing='1px';
+        ctx.fillStyle=`rgba(${c.color[0]},${c.color[1]},${c.color[2]},.22)`;
+        ctx.fillText(c.name.toUpperCase(),left,Math.max(11,top-9));
+      }
     }
   }
 
@@ -169,9 +245,7 @@
 
   function spawnShooterBurst(){
     const count=Math.random()<.24?3:(Math.random()<.48?2:1);
-    for(let i=0;i<count;i++){
-      setTimeout(()=>{ if(!hidden&&!reducedMotion.matches) spawnShooter(); },i*random(120,260));
-    }
+    for(let i=0;i<count;i++) setTimeout(()=>{if(!hidden&&!reducedMotion.matches)spawnShooter();},i*random(120,260));
   }
 
   function drawShooters(dt){

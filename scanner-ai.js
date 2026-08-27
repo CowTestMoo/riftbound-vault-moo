@@ -17,6 +17,7 @@
     return panel;
   }
   function show(html,state='idle'){const p=ensurePanel();if(!p)return;p.dataset.state=state;p.innerHTML=html}
+  function showReady(){show('<div class="scanner-ai-ready"><strong>Automatic card recognition</strong><small>Take a clear photo of the front of a Riftbound card. The scanner will identify it and match it against the vault catalog.</small></div>')}
 
   async function resizeFile(file){
     const url=URL.createObjectURL(file);
@@ -38,12 +39,23 @@
     if(norm(card.rarity)&&norm(r.rarity)&&norm(card.rarity)===norm(r.rarity))s+=1;
     return s;
   }
-  function matches(r){return catalog().map(card=>({card,score:score(card,r)})).filter(x=>x.score>2).sort((a,b)=>b.score-a.score||String(a.card.cardSet||'').localeCompare(String(b.card.cardSet||''))).slice(0,6)}
+  function matches(r){return catalog().map(card=>({card,score:score(card,r)})).filter(x=>x.score>=4).sort((a,b)=>b.score-a.score||String(a.card.cardSet||'').localeCompare(String(b.card.cardSet||''))).slice(0,6)}
 
   function renderResult(r){
-    lastResult=r;const found=matches(r),confidence=Math.round(Math.max(0,Math.min(1,Number(r.confidence||0)))*100);
+    lastResult=r;const isCard=r.is_card!==false,found=isCard?matches(r):[],confidence=Math.round(Math.max(0,Math.min(1,Number(r.confidence||0)))*100);
     const detected=`${r.name||'Unknown'}${r.collector_number?` • #${r.collector_number}`:''}${r.set_name||r.set_code?` • ${r.set_name||r.set_code}`:''}`;
-    show(`<div class="scanner-ai-head"><div><strong>AI Recognition</strong><small>${r.is_card===false?'Image may not be a Riftbound card':`Vision confidence ${confidence}%`}</small></div><span>${confidence}%</span></div><div class="scanner-detected"><small>Detected</small><b>${esc(detected)}</b></div>${found.length?`<div class="scanner-ai-matches">${found.map((x,i)=>`<div class="scanner-ai-match ${i===0?'best':''}">${x.card.imageUrl?`<img src="${esc(x.card.imageUrl)}" alt="">`:''}<span><strong>${esc(nameOf(x.card))}</strong><small>${esc(x.card.cardSet||'')} ${esc(x.card.cardNumber||'')}${i===0?' • Best match':''}</small></span><button type="button" data-scan-add="${esc(x.card.cardCode)}">+1</button></div>`).join('')}</div>`:`<div class="scanner-ai-no-match">Recognition worked, but no confident catalog match was found. You can still use manual search below.</div>`}`,'ok');
+    const resultBlock=!isCard
+      ? '<div class="scanner-ai-no-match">This image does not appear to be a Riftbound card, so no inventory matches are being offered.</div>'
+      : found.length
+        ? `<div class="scanner-ai-matches">${found.map((x,i)=>`<div class="scanner-ai-match ${i===0?'best':''}">${x.card.imageUrl?`<img src="${esc(x.card.imageUrl)}" alt="">`:''}<span><strong>${esc(nameOf(x.card))}</strong><small>${esc(x.card.cardSet||'')} ${esc(x.card.cardNumber||'')}${i===0?` • ${x.score>=9?'Best match':'Possible match'}`:''}</small></span><button type="button" data-scan-add="${esc(x.card.cardCode)}">+1</button></div>`).join('')}</div>`
+        : '<div class="scanner-ai-no-match">Recognition worked, but no strong catalog match was found. You can still use manual search below.</div>';
+    show(`<div class="scanner-ai-head"><div><strong>AI Recognition</strong><small>${!isCard?'Not identified as Riftbound':`Vision confidence ${confidence}%`}</small></div><span>${confidence}%</span></div><div class="scanner-detected"><small>Detected</small><b>${esc(detected)}</b></div>${resultBlock}`,'ok');
+  }
+
+  function restorePanel(){
+    if(!document.getElementById('scannerFile'))return;
+    const p=ensurePanel();if(!p||p.innerHTML)return;
+    if(lastResult)renderResult(lastResult);else showReady();
   }
 
   async function scan(file){
@@ -63,9 +75,11 @@
   }
 
   document.addEventListener('change',e=>{if(e.target.id==='scannerFile'&&e.target.files?.[0])setTimeout(()=>scan(e.target.files[0]),20)});
-  document.addEventListener('click',e=>{if(e.target.closest('[data-tool="scanner"]'))setTimeout(()=>{const p=ensurePanel();if(p&&!p.innerHTML)show('<div class="scanner-ai-ready"><strong>Automatic card recognition</strong><small>Take a clear photo of the front of a Riftbound card. The scanner will identify it and match it against the vault catalog.</small></div>')},30)});
-  const observer=new MutationObserver(()=>{if(document.getElementById('scannerFile')){const p=ensurePanel();if(p&&!p.innerHTML&&lastResult)renderResult(lastResult)}});
-  function init(){observer.observe(document.body,{childList:true,subtree:true})}
+  document.addEventListener('click',e=>{if(e.target.closest('[data-tool="scanner"]'))setTimeout(restorePanel,0)});
+  window.addEventListener('riftbound-tool-render',e=>{if(e.detail?.tool==='scanner')requestAnimationFrame(restorePanel)});
+  window.addEventListener('riftbound-cloud-restored',()=>setTimeout(restorePanel,40));
+
+  function init(){setTimeout(restorePanel,0)}
   window.RiftboundScanner={scan};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

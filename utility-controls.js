@@ -22,7 +22,7 @@
       return;
     }
     if(!browse){
-      browse=document.createElement('button');browse.id='browseLibrariesUtilityBtn';browse.className='tab library-nav-btn';browse.type='button';browse.textContent='Browse Libraries';browse.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.RiftboundSocial?.openBrowser?.()});
+      browse=document.createElement('button');browse.id='browseLibrariesUtilityBtn';browse.className='library-nav-btn';browse.type='button';browse.textContent='Browse Libraries';browse.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.RiftboundSocial?.openBrowser?.()});
     }
     const tools=tabs.querySelector('[data-tab="tools"]');
     if(tools){if(tools.nextElementSibling!==browse)tools.insertAdjacentElement('afterend',browse)}
@@ -34,6 +34,7 @@
     setTimeout(ensureControls,350);
     window.addEventListener('riftbound-cloud-restored',ensureControls);
     window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(ensureControls,60));
+    window.addEventListener('riftbound-social-ready',ensureControls);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

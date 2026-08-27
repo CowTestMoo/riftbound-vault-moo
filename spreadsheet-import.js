@@ -3,276 +3,55 @@
 
   const APP_KEY='riftbound-vault-v2';
   const XLSX_SRC='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
-  const ALIASES={
-    code:['card code','cardcode','card id','cardid','code','id'],
-    number:['card number','cardnumber','collector number','collector no','collectornumber','number','no','#'],
-    set:['set code','setcode','card set','cardset','set','expansion','series'],
-    name:['card name','cardname','full name','fullname','name'],
-    qty:['quantity owned','quantity','qty','owned','copies','copy','count','amount']
-  };
-
-  let book=null,rows=[],fileName='',analysis=null,resolverIndex=0;
+  const ALIASES={code:['card code','cardcode','card id','cardid','code','id'],number:['card number','cardnumber','collector number','collector no','collectornumber','number','no','#'],set:['set code','setcode','card set','cardset','set','expansion','series'],name:['card name','cardname','full name','fullname','name'],qty:['quantity owned','quantity','qty','owned','copies','copy','count','amount']};
+  const PLACEHOLDERS=new Set(['','blank','missing','empty','n/a','na','none','null','placeholder','tbd','-','--']);
+  let book=null,rows=[],fileName='',analysis=null,resolverIndex=0,resolverSearch='';
   let mapping={code:'',number:'',set:'',name:'',qty:''};
-  let manualChoices=new Map();
-  let catalog=[],byCode=new Map(),indexes=null;
-
-  const esc=(v='')=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const esc=(v='')=>String(v).replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   const norm=v=>String(v??'').trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[’‘`´]/g,"'").replace(/[_-]+/g,' ').replace(/\s+/g,' ');
   const compact=v=>norm(v).replace(/[^a-z0-9]/g,'');
-  const nameKey=v=>norm(v).replace(/[^a-z0-9]+/g,'');
   const cardName=c=>c?.fullName||c?.name||c?.cardCode||'Unknown card';
+  const state=()=>{try{return JSON.parse(localStorage.getItem(APP_KEY)||'{}')}catch{return {}}};
   const uid=(p='id')=>`${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,9)}`;
-  const readState=()=>{try{return JSON.parse(localStorage.getItem(APP_KEY)||'{}')}catch{return {}}};
+  const placeholder=v=>PLACEHOLDERS.has(norm(v));
+  const meaningful=v=>!placeholder(v);
 
-  function ensureCatalog(){
-    catalog=window.RiftboundApp?.getCatalog?.()||catalog;
-    byCode=new Map(catalog.map(c=>[c.cardCode,c]));
-    indexes=buildIndexes(catalog);
-  }
-
-  function ensureSettingsRow(){
-    const panel=document.getElementById('uxSettings');
-    if(!panel||document.getElementById('spreadsheetImportSetting'))return !!panel;
-    const row=document.createElement('div');
-    row.id='spreadsheetImportSetting';row.className='setting-row spreadsheet-import-setting';
-    row.innerHTML='<div class="setting-copy"><strong>Import spreadsheet</strong><small>Excel/CSV import with automatic matching and picture-assisted review.</small></div><button id="openSpreadsheetImport" class="sound-test" type="button">Import</button>';
-    panel.appendChild(row);return true;
-  }
-
-  function ensureDialogs(){
-    if(!document.getElementById('spreadsheetImportDialog')){
-      const d=document.createElement('dialog');d.id='spreadsheetImportDialog';d.className='modal spreadsheet-import-dialog';
-      d.innerHTML=`<div class="modal-inner spreadsheet-import-inner">
-        <div class="modal-head"><div><h2>Import Spreadsheet</h2><p class="spreadsheet-subtitle">Excel / CSV → Riftbound Vault</p></div><button class="close-btn" data-close-spreadsheet>×</button></div>
-        <div class="spreadsheet-drop" id="spreadsheetDrop"><input id="spreadsheetFile" type="file" accept=".xlsx,.xls,.csv,.xlsb,.ods" hidden><div class="spreadsheet-drop-icon">✦</div><strong>Choose an Excel or CSV file</strong><span>or drag and drop it here</span><button id="chooseSpreadsheetFile" class="primary-btn" type="button">Choose File</button></div>
-        <div id="spreadsheetWorkspace" hidden>
-          <div class="spreadsheet-filebar"><div><strong id="spreadsheetFileName"></strong><small id="spreadsheetRowCount"></small></div><button id="changeSpreadsheetFile" class="ghost-btn" type="button">Change File</button></div>
-          <div class="spreadsheet-grid-two"><label>Sheet<select id="spreadsheetSheet"></select></label><label>Import mode<select id="spreadsheetMode"><option value="add">Add quantities to collection</option><option value="set">Set owned quantities for matched cards</option></select></label></div>
-          <div class="spreadsheet-mapping-wrap"><div class="spreadsheet-section-head"><div><h3>Column Mapping</h3><p>Auto-detected where possible. Correct anything that looks wrong.</p></div></div><div id="spreadsheetMapping" class="spreadsheet-mapping"></div></div>
-          <div id="spreadsheetSummary" class="spreadsheet-summary"></div>
-          <div class="spreadsheet-review-actions"><button id="autoAssignSpreadsheet" class="ghost-btn" type="button">Auto Assign Safe Suggestions</button><button id="reviewSpreadsheetMatches" class="primary-btn" type="button">Review Problem Cards</button></div>
-          <div class="spreadsheet-preview-wrap"><div class="spreadsheet-section-head"><div><h3>Preview</h3><p>Punctuation like Kha Zix → Kha'Zix is normalized automatically. Multiple printings are never guessed blindly.</p></div><button id="showProblemOnly" class="ghost-btn" type="button">Show Problems</button></div><div id="spreadsheetPreview" class="spreadsheet-preview"></div></div>
-          <div id="spreadsheetMessage" class="feature-message"></div>
-          <div class="modal-actions spreadsheet-actions"><button id="confirmSpreadsheetImport" class="primary-btn" type="button" disabled>Import Matched Cards</button></div>
-        </div>
-      </div>`;
-      document.body.appendChild(d);
-    }
-    if(!document.getElementById('spreadsheetResolverDialog')){
-      const d=document.createElement('dialog');d.id='spreadsheetResolverDialog';d.className='modal spreadsheet-resolver-dialog';
-      d.innerHTML=`<div class="modal-inner spreadsheet-resolver-inner"><div class="modal-head"><div><h2>Choose the Correct Card</h2><p id="resolverProgress" class="spreadsheet-subtitle"></p></div><button class="close-btn" data-close-resolver>×</button></div><div id="resolverSource" class="resolver-source"></div><div class="resolver-search-wrap"><input id="resolverSearch" type="search" placeholder="Search the full card catalog if none of these are right"></div><div id="resolverCandidates" class="resolver-candidates"></div><div class="resolver-footer"><button id="resolverSkip" class="ghost-btn" type="button">Skip for Now</button><button id="resolverClearChoice" class="ghost-btn" type="button">Clear Choice</button></div></div>`;
-      document.body.appendChild(d);
-    }
-  }
-
-  function loadXLSX(){
-    if(window.XLSX)return Promise.resolve(window.XLSX);
-    return new Promise((resolve,reject)=>{
-      const s=document.createElement('script');s.src=XLSX_SRC;s.async=true;s.crossOrigin='anonymous';
-      s.onload=()=>window.XLSX?resolve(window.XLSX):reject(new Error('Spreadsheet reader failed to initialize.'));
-      s.onerror=()=>reject(new Error('Could not load the spreadsheet reader. Check your connection and try again.'));
-      document.head.appendChild(s);
-    });
-  }
-
-  function detectMapping(headers){
-    const out={code:'',number:'',set:'',name:'',qty:''};
-    const normalized=headers.map(h=>({raw:h,n:norm(h),c:compact(h)}));
-    for(const [key,aliases] of Object.entries(ALIASES)){
-      const a=aliases.map(x=>({n:norm(x),c:compact(x)}));
-      const hit=normalized.find(h=>a.some(x=>h.n===x.n||h.c===x.c));if(hit)out[key]=hit.raw;
-    }
-    return out;
-  }
+  function ensureSettingsRow(){const panel=document.getElementById('uxSettings');if(!panel||document.getElementById('spreadsheetImportSetting'))return !!panel;const row=document.createElement('div');row.id='spreadsheetImportSetting';row.className='setting-row spreadsheet-import-setting';row.innerHTML='<div class="setting-copy"><strong>Import spreadsheet</strong><small>Import Excel/CSV collections with safe matching and visual review for alternate arts.</small></div><button id="openSpreadsheetImport" class="sound-test" type="button">Import</button>';panel.appendChild(row);return true}
+  function ensureDialog(){if(document.getElementById('spreadsheetImportDialog'))return;const d=document.createElement('dialog');d.id='spreadsheetImportDialog';d.className='modal spreadsheet-import-dialog';d.innerHTML=`<div class="modal-inner spreadsheet-import-inner"><div class="modal-head"><div><h2>Import Spreadsheet</h2><p class="spreadsheet-subtitle">Excel / CSV → Riftbound Vault</p></div><button class="close-btn" data-close-spreadsheet>×</button></div><div class="spreadsheet-drop" id="spreadsheetDrop"><input id="spreadsheetFile" type="file" accept=".xlsx,.xls,.csv,.xlsb,.ods" hidden><div class="spreadsheet-drop-icon">✦</div><strong>Choose an Excel or CSV file</strong><span>or drag and drop it here</span><button id="chooseSpreadsheetFile" class="primary-btn" type="button">Choose File</button></div><div id="spreadsheetWorkspace" hidden><div class="spreadsheet-filebar"><div><strong id="spreadsheetFileName"></strong><small id="spreadsheetRowCount"></small></div><button id="changeSpreadsheetFile" class="ghost-btn" type="button">Change File</button></div><div class="spreadsheet-grid-two"><label>Sheet<select id="spreadsheetSheet"></select></label><label>Import mode<select id="spreadsheetMode"><option value="add">Add quantities to collection</option><option value="set">Set owned quantities for matched cards</option></select></label></div><div class="spreadsheet-mapping-wrap"><div class="spreadsheet-section-head"><div><h3>Column Mapping</h3><p>We auto-detected these. Change anything that looks wrong.</p></div></div><div id="spreadsheetMapping" class="spreadsheet-mapping"></div></div><div id="spreadsheetSummary" class="spreadsheet-summary spreadsheet-summary-v3"></div><div id="spreadsheetReviewActions" class="spreadsheet-review-actions" hidden><div><strong id="spreadsheetReviewText"></strong><small>Rows with multiple possible printings need a quick visual choice.</small></div><button id="reviewProblemCards" class="primary-btn" type="button">Review Problem Cards</button></div><div class="spreadsheet-preview-wrap"><div class="spreadsheet-section-head"><div><h3>Preview</h3><p>Nothing changes until you confirm the import.</p></div><button id="showProblemsOnly" class="ghost-btn" type="button">Show Problems</button></div><div id="spreadsheetPreview" class="spreadsheet-preview"></div></div><div id="spreadsheetMessage" class="feature-message"></div><div class="modal-actions spreadsheet-actions"><button id="confirmSpreadsheetImport" class="primary-btn" type="button" disabled>Import Matched Cards</button></div></div></div>`;document.body.appendChild(d);const r=document.createElement('dialog');r.id='spreadsheetResolverDialog';r.className='modal spreadsheet-resolver-dialog';r.innerHTML='<div class="modal-inner spreadsheet-resolver-inner" id="spreadsheetResolverInner"></div>';document.body.appendChild(r)}
+  function loadXLSX(){if(window.XLSX)return Promise.resolve(window.XLSX);return new Promise((resolve,reject)=>{const existing=document.querySelector(`script[src="${XLSX_SRC}"]`);if(existing){existing.addEventListener('load',()=>resolve(window.XLSX),{once:true});existing.addEventListener('error',()=>reject(new Error('Spreadsheet reader failed to load.')),{once:true});return}const s=document.createElement('script');s.src=XLSX_SRC;s.async=true;s.crossOrigin='anonymous';s.onload=()=>window.XLSX?resolve(window.XLSX):reject(new Error('Spreadsheet reader failed to initialize.'));s.onerror=()=>reject(new Error('Could not load the spreadsheet reader. Check your connection and try again.'));document.head.appendChild(s)})}
+  function detectMapping(headers){const out={code:'',number:'',set:'',name:'',qty:''};const normalized=headers.map(h=>({raw:h,n:norm(h),c:compact(h)}));for(const [key,aliases] of Object.entries(ALIASES)){const candidates=aliases.map(a=>({n:norm(a),c:compact(a)}));const exact=normalized.find(h=>candidates.some(a=>h.n===a.n||h.c===a.c));if(exact)out[key]=exact.raw}return out}
   function columnOptions(headers,value){return `<option value="">Not provided</option>${headers.map(h=>`<option value="${esc(h)}" ${h===value?'selected':''}>${esc(h)}</option>`).join('')}`}
-  function renderMapping(){
-    const root=document.getElementById('spreadsheetMapping');if(!root)return;
-    const headers=rows.length?Object.keys(rows[0]):[];
-    const defs=[['code','Card code','Best exact identifier'],['number','Card number','Collector/card number'],['set','Set','Disambiguates printings'],['name','Card name','Punctuation-insensitive'],['qty','Quantity','Defaults to 1']];
-    root.innerHTML=defs.map(([key,title,help])=>`<label><span><strong>${title}</strong><small>${help}</small></span><select data-sheet-map="${key}">${columnOptions(headers,mapping[key])}</select></label>`).join('');
-  }
-
-  function numericQty(v){if(v===''||v==null)return 1;const n=Number(String(v).replace(/,/g,'').trim());return Number.isFinite(n)?Math.max(0,Math.floor(n)):0}
-  function numberKeys(v){const raw=String(v??'').trim();if(!raw)return[];const out=new Set([compact(raw)]);const m=raw.match(/^(?:[^0-9]*)(\d+)(.*)$/);if(m){out.add(`${Number(m[1])}${compact(m[2])}`);out.add(String(Number(m[1])))}return[...out].filter(Boolean)}
-  function setKeys(c){return [c.setCode,c.cardSet,c.setName].filter(Boolean).map(compact)}
-  function push(map,key,c){if(!key)return;const a=map.get(key)||[];a.push(c);map.set(key,a)}
-  function buildIndexes(cards){
-    const out={codes:new Map(),numbers:new Map(),setNumbers:new Map(),names:new Map(),setNames:new Map(),nameGroups:new Map()};
-    cards.forEach(c=>{
-      out.codes.set(compact(c.cardCode),c);
-      numberKeys(c.cardNumber).forEach(n=>push(out.numbers,n,c));
-      setKeys(c).forEach(s=>numberKeys(c.cardNumber).forEach(n=>push(out.setNumbers,`${s}|${n}`,c)));
-      const nk=nameKey(cardName(c));push(out.names,nk,c);push(out.nameGroups,nk,c);
-      setKeys(c).forEach(s=>push(out.setNames,`${s}|${nk}`,c));
-    });
-    return out;
-  }
-
-  function dice(a,b){
-    a=nameKey(a);b=nameKey(b);if(!a||!b)return 0;if(a===b)return 1;if(a.length<2||b.length<2)return a===b?1:0;
-    const pairs=new Map();for(let i=0;i<a.length-1;i++){const p=a.slice(i,i+2);pairs.set(p,(pairs.get(p)||0)+1)}
-    let overlap=0;for(let i=0;i<b.length-1;i++){const p=b.slice(i,i+2),n=pairs.get(p)||0;if(n){overlap++;pairs.set(p,n-1)}}
-    return (2*overlap)/((a.length-1)+(b.length-1));
-  }
-  function uniqCards(arr){const seen=new Set();return (arr||[]).filter(c=>c?.cardCode&&!seen.has(c.cardCode)&&seen.add(c.cardCode))}
-  function candidateObj(card,score,reason){return {card,score,reason}}
-
-  function fuzzyCandidates(name,set){
-    const nk=nameKey(name);if(!nk)return[];const setKey=compact(set);const scored=[];
-    for(const [key,cards] of indexes.nameGroups){
-      let score=dice(nk,key);if(score<.48)continue;
-      const matchingSet=setKey?cards.filter(c=>setKeys(c).includes(setKey)):[];
-      if(matchingSet.length)score=Math.min(1,score+.09);
-      const use=matchingSet.length?matchingSet:cards;
-      use.forEach(c=>scored.push(candidateObj(c,score,'Name suggestion')));
-    }
-    return scored.sort((a,b)=>b.score-a.score).filter((x,i,a)=>i===a.findIndex(y=>y.card.cardCode===x.card.cardCode)).slice(0,8);
-  }
-
-  function resultFromCards(cards,method,score=1){
-    const u=uniqCards(cards);
-    if(u.length===1)return {status:'matched',card:u[0],method,score,candidates:[candidateObj(u[0],score,method)]};
-    if(u.length>1)return {status:'review',card:null,method:`${method} • multiple printings`,score,candidates:u.slice(0,12).map(c=>candidateObj(c,score,method))};
-    return null;
-  }
-
-  function matchRow(row,rowIndex){
-    const manual=manualChoices.get(rowIndex);if(manual&&byCode.has(manual))return {status:'matched',card:byCode.get(manual),method:'Your choice',score:1,candidates:[candidateObj(byCode.get(manual),1,'Your choice')]};
-    const code=mapping.code?row[mapping.code]:'';
-    if(code){const c=indexes.codes.get(compact(code));if(c)return {status:'matched',card:c,method:'Card code',score:1,candidates:[candidateObj(c,1,'Card code')]}}
-    const number=mapping.number?row[mapping.number]:'';
-    const set=mapping.set?row[mapping.set]:'';
-    const name=mapping.name?row[mapping.name]:'';
-    const sk=compact(set),nk=nameKey(name);
-
-    if(number&&sk){for(const n of numberKeys(number)){const r=resultFromCards(indexes.setNumbers.get(`${sk}|${n}`),'Set + number');if(r)return r}}
-    if(number){for(const n of numberKeys(number)){const r=resultFromCards(indexes.numbers.get(n),'Card number');if(r)return r}}
-    if(name&&sk){const r=resultFromCards(indexes.setNames.get(`${sk}|${nk}`),'Set + name');if(r)return r}
-    if(name){const r=resultFromCards(indexes.names.get(nk),'Name (punctuation normalized)');if(r)return r}
-
-    const fuzzy=fuzzyCandidates(name,set);
-    if(fuzzy.length)return {status:'review',card:null,method:'Suggested match',score:fuzzy[0].score,candidates:fuzzy};
-    return {status:'unmatched',card:null,method:'No likely match',score:0,candidates:[]};
-  }
-
-  function analyze(){
-    ensureCatalog();
-    const items=[],aggregate=new Map();let matched=0,review=0,unmatched=0,totalQty=0;
-    rows.forEach((row,i)=>{
-      const qty=numericQty(mapping.qty?row[mapping.qty]:'');const r=matchRow(row,i);const item={row:i+2,rowIndex:i,rowData:row,qty,...r};items.push(item);
-      if(r.status==='matched'&&r.card){matched++;totalQty+=qty;const a=aggregate.get(r.card.cardCode)||{card:r.card,qty:0,rows:[]};a.qty+=qty;a.rows.push(item);aggregate.set(r.card.cardCode,a)}
-      else if(r.status==='review')review++;else unmatched++;
-    });
-    analysis={items,aggregate,matched,review,unmatched,totalQty,uniqueMatched:aggregate.size};renderAnalysis(document.getElementById('showProblemOnly')?.dataset.on==='1');
-  }
-
-  function rawLabel(item){
-    const vals=[mapping.name&&item.rowData[mapping.name],mapping.set&&item.rowData[mapping.set],mapping.number&&item.rowData[mapping.number],mapping.code&&item.rowData[mapping.code]].filter(v=>String(v??'').trim());return vals.join(' • ')||'(blank row)';
-  }
-  function renderAnalysis(problemOnly=false){
-    const a=analysis||{items:[],matched:0,review:0,unmatched:0,totalQty:0,uniqueMatched:0};
-    const summary=document.getElementById('spreadsheetSummary');if(summary)summary.innerHTML=`<div><strong>${rows.length}</strong><small>Rows</small></div><div class="good"><strong>${a.matched}</strong><small>Matched</small></div><div class="review"><strong>${a.review}</strong><small>Needs review</small></div><div class="${a.unmatched?'warn':''}"><strong>${a.unmatched}</strong><small>Unmatched</small></div><div><strong>${a.uniqueMatched}</strong><small>Unique cards</small></div>`;
-    const reviewBtn=document.getElementById('reviewSpreadsheetMatches');if(reviewBtn){reviewBtn.disabled=!(a.review+a.unmatched);reviewBtn.textContent=(a.review+a.unmatched)?`Review ${a.review+a.unmatched} Problem Card${a.review+a.unmatched===1?'':'s'}`:'All Cards Resolved ✓'}
-    const auto=document.getElementById('autoAssignSpreadsheet');if(auto)auto.disabled=!a.review;
-    const root=document.getElementById('spreadsheetPreview');if(root){
-      const list=a.items.filter(x=>!problemOnly||x.status!=='matched').slice(0,100);
-      root.innerHTML=list.length?`<div class="spreadsheet-table spreadsheet-table-v2"><div class="spreadsheet-tr spreadsheet-th"><span>Row</span><span>Spreadsheet</span><span>Matched card</span><span>Qty</span><span>Status</span></div>${list.map(x=>{
-        const cls=x.status==='matched'?'matched':x.status==='review'?'needs-review':'unmatched';
-        const card=x.card?`${esc(cardName(x.card))}<small>${esc(x.card.cardSet||x.card.setCode||'')} • #${esc(x.card.cardNumber||'')}</small>`:x.candidates?.length?`<em>${x.candidates.length} possible match${x.candidates.length===1?'':'es'}</em>`:'<em>No likely match</em>';
-        const status=x.status==='matched'?`<b>✓</b> ${esc(x.method)}`:`<button class="resolve-row-btn" data-resolve-row="${x.rowIndex}">${x.status==='review'?'Choose Card':'Find Card'}</button>`;
-        return `<div class="spreadsheet-tr ${cls}"><span>${x.row}</span><span title="${esc(rawLabel(x))}">${esc(rawLabel(x))}</span><span>${card}</span><span>${x.qty}</span><span>${status}</span></div>`;
-      }).join('')}</div>`:'<div class="recent-empty">No rows to show.</div>';
-    }
-    const btn=document.getElementById('confirmSpreadsheetImport');if(btn){btn.disabled=!a.matched;btn.textContent=`Import ${a.matched} Matched Row${a.matched===1?'':'s'}`}
-    const msg=document.getElementById('spreadsheetMessage');if(msg){
-      if(!mapping.code&&!mapping.number&&!mapping.name)msg.textContent='Map at least Card code, Card number, or Card name.';
-      else if(a.review||a.unmatched)msg.textContent=`${a.review} need review and ${a.unmatched} have no strong match. You can resolve them with card pictures before importing.`;
-      else msg.textContent='Everything is resolved and ready to import.';
-    }
-  }
-
-  function autoAssign(){
-    if(!analysis)return;let assigned=0;
-    analysis.items.filter(x=>x.status==='review'&&x.candidates?.length).forEach(x=>{
-      const sorted=[...x.candidates].sort((a,b)=>b.score-a.score),top=sorted[0],next=sorted[1];
-      const uniqueName=sorted.filter(c=>nameKey(cardName(c.card))===nameKey(cardName(top.card))).length===1;
-      if(top.score>=.91&&(!next||top.score-next.score>=.12)&&uniqueName){manualChoices.set(x.rowIndex,top.card.cardCode);assigned++}
-    });
-    analyze();const msg=document.getElementById('spreadsheetMessage');if(msg)msg.textContent=assigned?`Auto-assigned ${assigned} high-confidence suggestion${assigned===1?'':'s'}. Anything ambiguous is still waiting for you.`:'No ambiguous rows were safe enough to auto-assign. Use Review Problem Cards.';
-  }
-
-  function problemItems(){return (analysis?.items||[]).filter(x=>x.status!=='matched')}
-  function openResolver(rowIndex=null){
-    const probs=problemItems();if(!probs.length)return;
-    if(rowIndex!=null){const pos=probs.findIndex(x=>x.rowIndex===Number(rowIndex));resolverIndex=pos>=0?pos:0}else resolverIndex=Math.min(resolverIndex,probs.length-1);
-    document.getElementById('spreadsheetResolverDialog').showModal();renderResolver();
-  }
-  function renderResolver(search=''){
-    const probs=problemItems();if(!probs.length){document.getElementById('spreadsheetResolverDialog')?.close();return}
-    resolverIndex=(resolverIndex+probs.length)%probs.length;const item=probs[resolverIndex];
-    document.getElementById('resolverProgress').textContent=`Problem card ${resolverIndex+1} of ${probs.length} • Spreadsheet row ${item.row}`;
-    document.getElementById('resolverSource').innerHTML=`<strong>${esc(rawLabel(item))}</strong><span>Quantity ${item.qty}</span><small>${item.status==='review'?'We found possible matches. Pick the exact printing/art you own.':'No strong automatic match. Search the catalog or choose a suggestion.'}</small>`;
-    let candidates=item.candidates||[];
-    if(search.trim()){
-      const q=norm(search),qk=nameKey(search);
-      candidates=catalog.map(c=>candidateObj(c,Math.max(dice(qk,nameKey(cardName(c))),norm(`${cardName(c)} ${c.cardSet} ${c.cardNumber} ${c.cardCode}`).includes(q)?.95:0),'Catalog search')).filter(x=>x.score>.4).sort((a,b)=>b.score-a.score).slice(0,24);
-    }
-    const root=document.getElementById('resolverCandidates');
-    root.innerHTML=candidates.length?candidates.map(x=>`<button class="resolver-card" data-resolver-card="${esc(x.card.cardCode)}" type="button">${x.card.imageUrl?`<img src="${esc(x.card.imageUrl)}" alt="${esc(cardName(x.card))}" loading="lazy">`:'<div class="resolver-no-image">No image</div>'}<span><strong>${esc(cardName(x.card))}</strong><small>${esc(x.card.cardSet||x.card.setCode||'')} • #${esc(x.card.cardNumber||'')} • ${esc(x.card.rarity||'')}</small></span></button>`).join(''):'<div class="recent-empty">No catalog matches. Try another search.</div>';
-    document.getElementById('resolverSearch').value=search;
-  }
-  function chooseResolverCard(code){
-    const probs=problemItems(),item=probs[resolverIndex];if(!item||!byCode.has(code))return;
-    manualChoices.set(item.rowIndex,code);analyze();
-    const remaining=problemItems();if(!remaining.length){document.getElementById('spreadsheetResolverDialog').close();return}
-    resolverIndex=Math.min(resolverIndex,remaining.length-1);renderResolver();
-  }
-
-  function loadSheet(name){
-    if(!book||!window.XLSX)return;rows=window.XLSX.utils.sheet_to_json(book.Sheets[name],{defval:'',raw:false,blankrows:false});manualChoices.clear();mapping=detectMapping(rows.length?Object.keys(rows[0]):[]);document.getElementById('spreadsheetRowCount').textContent=`${rows.length.toLocaleString()} data rows`;renderMapping();analyze();
-  }
-  async function openFile(file){
-    try{
-      if(!file)return;fileName=file.name;document.getElementById('spreadsheetDrop').classList.add('loading');const XLSX=await loadXLSX();book=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});if(!book.SheetNames?.length)throw new Error('No worksheets found.');const select=document.getElementById('spreadsheetSheet');select.innerHTML=book.SheetNames.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');document.getElementById('spreadsheetFileName').textContent=fileName;document.getElementById('spreadsheetDrop').hidden=true;document.getElementById('spreadsheetWorkspace').hidden=false;loadSheet(book.SheetNames[0]);
-    }catch(err){console.error(err);alert(`Could not read spreadsheet: ${err.message}`)}finally{document.getElementById('spreadsheetDrop').classList.remove('loading')}
-  }
-
-  function allocated(code,s){const decked=(s.decks||[]).reduce((n,d)=>n+Number(d.cards?.[code]||0),0),loaned=(s.loans||[]).filter(l=>!l.returnedAt&&l.cardCode===code).reduce((n,l)=>n+Number(l.qty||0),0);return decked+loaned}
-  function applyImport(){
-    if(!analysis?.aggregate?.size)return;const mode=document.getElementById('spreadsheetMode')?.value||'add';const s={inventory:{},decks:[],loans:[],transactions:[],...readState()};s.inventory=s.inventory||{};s.transactions=s.transactions||[];let changed=0,clamped=0;
-    for(const [code,item] of analysis.aggregate){const current=Number(s.inventory[code]?.owned||0),min=allocated(code,s);let next=mode==='set'?item.qty:current+item.qty;if(next<min){next=min;clamped++}next=Math.max(0,Math.floor(next));if(next===current)continue;s.inventory[code]={...(s.inventory[code]||{}),owned:next};changed++}
-    s.transactions=[{id:uid('evt'),type:'activity',action:`Imported spreadsheet “${fileName}” • ${changed} cards updated`,at:new Date().toISOString(),source:'spreadsheet',matchedRows:analysis.matched,reviewRemaining:analysis.review,unmatchedRows:analysis.unmatched},...s.transactions].slice(0,500);localStorage.setItem(APP_KEY,JSON.stringify(s));window.RiftboundApp?.reloadState?.();window.RiftboundCloud?.syncNow?.();const msg=document.getElementById('spreadsheetMessage');if(msg)msg.textContent=`Import complete: ${changed} unique cards updated${clamped?`. ${clamped} stayed high enough for deck/loan allocations.`:'.'}`;const btn=document.getElementById('confirmSpreadsheetImport');if(btn){btn.disabled=true;btn.textContent='Imported ✓'}setTimeout(()=>document.getElementById('spreadsheetImportDialog')?.close(),1300);
-  }
-
-  function resetDialog(){book=null;rows=[];analysis=null;fileName='';manualChoices.clear();mapping={code:'',number:'',set:'',name:'',qty:''};const drop=document.getElementById('spreadsheetDrop'),work=document.getElementById('spreadsheetWorkspace'),file=document.getElementById('spreadsheetFile');if(drop)drop.hidden=false;if(work)work.hidden=true;if(file)file.value='';const btn=document.getElementById('confirmSpreadsheetImport');if(btn){btn.disabled=true;btn.textContent='Import Matched Cards'}}
-  function openDialog(){ensureCatalog();ensureDialogs();resetDialog();document.getElementById('spreadsheetImportDialog').showModal()}
-
-  function bind(){
-    document.addEventListener('click',e=>{
-      if(e.target.closest('#openSpreadsheetImport'))return openDialog();
-      if(e.target.closest('[data-close-spreadsheet]'))return document.getElementById('spreadsheetImportDialog')?.close();
-      if(e.target.closest('[data-close-resolver]'))return document.getElementById('spreadsheetResolverDialog')?.close();
-      if(e.target.closest('#chooseSpreadsheetFile')||e.target.closest('#changeSpreadsheetFile'))return document.getElementById('spreadsheetFile')?.click();
-      if(e.target.closest('#confirmSpreadsheetImport'))return applyImport();
-      if(e.target.closest('#autoAssignSpreadsheet'))return autoAssign();
-      if(e.target.closest('#reviewSpreadsheetMatches'))return openResolver();
-      const rr=e.target.closest('[data-resolve-row]');if(rr)return openResolver(rr.dataset.resolveRow);
-      const rc=e.target.closest('[data-resolver-card]');if(rc)return chooseResolverCard(rc.dataset.resolverCard);
-      if(e.target.closest('#resolverSkip')){resolverIndex++;renderResolver(document.getElementById('resolverSearch')?.value||'');return}
-      if(e.target.closest('#resolverClearChoice')){const item=problemItems()[resolverIndex];if(item)manualChoices.delete(item.rowIndex);analyze();renderResolver();return}
-      const problem=e.target.closest('#showProblemOnly');if(problem){const on=problem.dataset.on!=='1';problem.dataset.on=on?'1':'0';problem.textContent=on?'Show All':'Show Problems';renderAnalysis(on);return}
-    });
-    document.addEventListener('change',e=>{
-      if(e.target.id==='spreadsheetFile')return openFile(e.target.files?.[0]);
-      if(e.target.id==='spreadsheetSheet')return loadSheet(e.target.value);
-      if(e.target.matches('[data-sheet-map]')){mapping[e.target.dataset.sheetMap]=e.target.value;manualChoices.clear();analyze()}
-    });
-    document.addEventListener('input',e=>{if(e.target.id==='resolverSearch')renderResolver(e.target.value)});
-    document.addEventListener('dragover',e=>{const d=e.target.closest?.('#spreadsheetDrop');if(d){e.preventDefault();d.classList.add('dragover')}});
-    document.addEventListener('dragleave',e=>{const d=e.target.closest?.('#spreadsheetDrop');if(d)d.classList.remove('dragover')});
-    document.addEventListener('drop',e=>{const d=e.target.closest?.('#spreadsheetDrop');if(!d)return;e.preventDefault();d.classList.remove('dragover');openFile(e.dataTransfer?.files?.[0])});
-  }
-
-  function init(){ensureCatalog();ensureDialogs();ensureSettingsRow();bind();const observer=new MutationObserver(()=>ensureSettingsRow());observer.observe(document.body,{childList:true,subtree:true})}
+  function renderMapping(){const root=document.getElementById('spreadsheetMapping');if(!root)return;const headers=rows.length?Object.keys(rows[0]):[];const defs=[['code','Card code','Best match when available'],['number','Card number','Collector/card number'],['set','Set','Helps disambiguate card numbers'],['name','Card name','Punctuation-insensitive matching'],['qty','Quantity','Defaults to 1 if omitted']];root.innerHTML=defs.map(([key,title,help])=>`<label><span><strong>${title}</strong><small>${help}</small></span><select data-sheet-map="${key}">${columnOptions(headers,mapping[key])}</select></label>`).join('')}
+  function numericQty(v){if(v===''||v===null||v===undefined)return 1;const n=Number(String(v).replace(/,/g,'').trim());return Number.isFinite(n)?Math.max(0,Math.floor(n)):0}
+  function numberKeys(v){const raw=String(v??'').trim();if(!raw||placeholder(raw))return[];const keys=new Set([compact(raw)]);const m=raw.match(/^(?:[^0-9]*)(\d+)(.*)$/);if(m){keys.add(`${Number(m[1])}${compact(m[2])}`);keys.add(String(Number(m[1])))}return[...keys].filter(Boolean)}
+  function setKeys(card){return [card.setCode,card.cardSet,card.setName].filter(Boolean).map(compact)}
+  function buildIndexes(catalog){const codes=new Map(),numbers=new Map(),setNumbers=new Map(),names=new Map(),setNames=new Map();const push=(map,key,card)=>{if(!key)return;const a=map.get(key)||[];if(!a.some(c=>c.cardCode===card.cardCode))a.push(card);map.set(key,a)};catalog.forEach(c=>{const code=compact(c.cardCode);if(code)codes.set(code,c);numberKeys(c.cardNumber).forEach(n=>push(numbers,n,c));setKeys(c).forEach(s=>numberKeys(c.cardNumber).forEach(n=>push(setNumbers,`${s}|${n}`,c)));const nk=compact(cardName(c));push(names,nk,c);setKeys(c).forEach(s=>push(setNames,`${s}|${nk}`,c))});return{codes,numbers,setNumbers,names,setNames}}
+  function dedupe(cards=[]){const m=new Map();cards.forEach(c=>c?.cardCode&&m.set(c.cardCode,c));return[...m.values()]}
+  function candidateResult(cards,method){const candidates=dedupe(cards);if(candidates.length===1)return{status:'matched',assignments:[{card:candidates[0],qty:null}],candidates,method};if(candidates.length>1)return{status:'review',assignments:[],candidates,method};return null}
+  function isPlaceholderRow(row){const identifiers=[mapping.code,mapping.number,mapping.name].filter(Boolean).map(col=>row[col]);if(!identifiers.length)return true;return identifiers.every(v=>!meaningful(v))}
+  function matchRow(row,idx,catalog){if(isPlaceholderRow(row))return{status:'ignored',assignments:[],candidates:[],method:'Placeholder row'};const code=mapping.code&&meaningful(row[mapping.code])?row[mapping.code]:'';const number=mapping.number&&meaningful(row[mapping.number])?row[mapping.number]:'';const set=mapping.set&&meaningful(row[mapping.set])?row[mapping.set]:'';const name=mapping.name&&meaningful(row[mapping.name])?row[mapping.name]:'';const setKey=set?compact(set):'';if(code){const c=idx.codes.get(compact(code));if(c)return{status:'matched',assignments:[{card:c,qty:null}],candidates:[c],method:'Card code'}}if(number&&setKey){let cards=[];for(const n of numberKeys(number))cards.push(...(idx.setNumbers.get(`${setKey}|${n}`)||[]));const r=candidateResult(cards,'Set + number');if(r)return r}if(name&&setKey){const r=candidateResult(idx.setNames.get(`${setKey}|${compact(name)}`)||[],'Set + name');if(r)return r}if(number){let cards=[];for(const n of numberKeys(number))cards.push(...(idx.numbers.get(n)||[]));const r=candidateResult(cards,'Card number');if(r)return r}if(name){const exact=idx.names.get(compact(name))||[];const r=candidateResult(exact,'Card name');if(r)return r;const needle=compact(name);const fuzzy=dedupe(catalog.filter(c=>{const cn=compact(cardName(c));return needle.length>=4&&(cn.includes(needle)||needle.includes(cn))})).slice(0,12);if(fuzzy.length===1)return{status:'matched',assignments:[{card:fuzzy[0],qty:null}],candidates:fuzzy,method:'Unique name suggestion'};if(fuzzy.length>1)return{status:'review',assignments:[],candidates:fuzzy,method:'Possible name matches'}}return{status:'unmatched',assignments:[],candidates:[],method:'Unmatched'}}
+  function finalizeItemAssignments(item){if(item.status==='matched'&&item.assignments.length===1&&item.assignments[0].qty===null)item.assignments[0].qty=item.qty;item.card=item.assignments.length===1?item.assignments[0].card:null}
+  function rebuildAggregate(items){const aggregate=new Map();let matchedRows=0,review=0,unmatched=0,ignored=0,totalQty=0;for(const item of items){if(item.status==='ignored'){ignored++;continue}if(item.status==='review'){review++;continue}if(item.status==='unmatched'){unmatched++;continue}if(item.status==='matched'){matchedRows++;for(const a of item.assignments){const q=Math.max(0,Number(a.qty||0));totalQty+=q;if(q===0)continue;const existing=aggregate.get(a.card.cardCode)||{card:a.card,qty:0,rows:[]};existing.qty+=q;existing.rows.push(item);aggregate.set(a.card.cardCode,existing)}}}return{aggregate,matchedRows,review,unmatched,ignored,totalQty,uniqueMatched:aggregate.size}}
+  function analyze(){const catalog=window.RiftboundApp?.getCatalog?.()||[];if(!catalog.length){analysis={items:[],aggregate:new Map(),matchedRows:0,review:0,unmatched:rows.length,ignored:0,totalQty:0,uniqueMatched:0};renderAnalysis();return}const idx=buildIndexes(catalog),items=[];rows.forEach((row,i)=>{const qty=numericQty(mapping.qty?row[mapping.qty]:'');const result=matchRow(row,idx,catalog);const item={row:i+2,rowIndex:i,rowData:row,qty,...result};finalizeItemAssignments(item);items.push(item)});analysis={items,...rebuildAggregate(items)};renderAnalysis()}
+  function rowLabel(item){const rawName=mapping.name?item.rowData[mapping.name]:'';const rawNumber=mapping.number?item.rowData[mapping.number]:'';const rawSet=mapping.set?item.rowData[mapping.set]:'';return[rawName,rawSet,rawNumber].filter(v=>meaningful(v)).join(' • ')||'(placeholder / blank)'}
+  function assignmentLabel(item){if(item.status==='ignored')return'<em>Ignored placeholder</em>';if(item.status==='unmatched')return'<em>No safe match</em>';if(item.status==='review')return`<em>${item.candidates.length} possible cards</em>`;if(item.assignments.length===1){const a=item.assignments[0];return`${esc(cardName(a.card))}<small>${esc(a.card.cardSet||a.card.setCode||'')} ${esc(a.card.cardNumber||'')} • ×${a.qty}</small>`}return item.assignments.map(a=>`${esc(cardName(a.card))} ×${a.qty}`).join('<br>')}
+  function statusLabel(item){if(item.status==='ignored')return'<b>○</b> Ignored';if(item.status==='unmatched')return'<b>!</b> Unmatched';if(item.status==='review')return'<b>?</b> Needs review';return`<b>✓</b> ${esc(item.method)}`}
+  function renderAnalysis(problemsOnly=false){const a=analysis||{items:[],matchedRows:0,review:0,unmatched:0,ignored:0,totalQty:0,uniqueMatched:0};const summary=document.getElementById('spreadsheetSummary');if(summary)summary.innerHTML=`<div><strong>${rows.length}</strong><small>Rows</small></div><div class="good"><strong>${a.matchedRows}</strong><small>Matched</small></div><div class="${a.review?'warn':''}"><strong>${a.review}</strong><small>Needs review</small></div><div class="${a.unmatched?'warn':''}"><strong>${a.unmatched}</strong><small>Unmatched</small></div><div class="muted"><strong>${a.ignored}</strong><small>Ignored</small></div><div><strong>${a.totalQty}</strong><small>Copies ready</small></div>`;const reviewActions=document.getElementById('spreadsheetReviewActions');const reviewText=document.getElementById('spreadsheetReviewText');if(reviewActions)reviewActions.hidden=!(a.review>0);if(reviewText)reviewText.textContent=`${a.review} row${a.review===1?'':'s'} need${a.review===1?'s':''} your choice`;const root=document.getElementById('spreadsheetPreview');if(root){const filtered=(a.items||[]).filter(x=>!problemsOnly||x.status==='review'||x.status==='unmatched');const shown=filtered.slice(0,100);root.innerHTML=shown.length?`<div class="spreadsheet-table"><div class="spreadsheet-tr spreadsheet-th"><span>Row</span><span>Spreadsheet</span><span>Assignment</span><span>Qty</span><span>Status</span></div>${shown.map(x=>`<div class="spreadsheet-tr ${x.status}"><span>${x.row}</span><span title="${esc(rowLabel(x))}">${esc(rowLabel(x))}</span><span>${assignmentLabel(x)}</span><span>${x.qty}</span><span>${statusLabel(x)}</span></div>`).join('')}</div>${filtered.length>100?'<p class="spreadsheet-more">Showing the first 100 preview rows.</p>':''}`:'<div class="recent-empty">No rows to preview.</div>'}const btn=document.getElementById('confirmSpreadsheetImport');if(btn)btn.disabled=!(a.matchedRows>0)||a.review>0;const msg=document.getElementById('spreadsheetMessage');if(msg){if(!mapping.code&&!mapping.number&&!mapping.name)msg.textContent='Map at least a card code, card number, or card name column.';else if(a.review)msg.textContent=`Review ${a.review} ambiguous row${a.review===1?'':'s'} before importing. Rows with exactly one possible card were assigned automatically.`;else if(a.unmatched)msg.textContent=`${a.unmatched} row${a.unmatched===1?'':'s'} could not be matched and will be skipped. ${a.ignored} placeholder row${a.ignored===1?' was':'s were'} ignored.`;else msg.textContent=`Ready to import. ${a.ignored} placeholder row${a.ignored===1?' was':'s were'} ignored automatically.`}}
+  function reviewItems(){return analysis?.items?.filter(x=>x.status==='review')||[]}
+  function candidateCard(card,item){const current=item.assignments.find(a=>a.card.cardCode===card.cardCode)?.qty||0;return`<article class="resolver-candidate" data-resolver-code="${esc(card.cardCode)}">${card.imageUrl?`<img src="${esc(card.imageUrl)}" alt="${esc(cardName(card))}">`:'<div class="resolver-no-image">No image</div>'}<div class="resolver-candidate-copy"><strong>${esc(cardName(card))}</strong><small>${esc(card.cardSet||card.setCode||'')} • ${esc(card.cardNumber||'')} • ${esc(card.rarity||'')}</small><label>Copies from this row<input class="resolver-qty" type="number" min="0" max="${item.qty}" step="1" value="${current}" data-resolver-qty="${esc(card.cardCode)}"></label><button class="ghost-btn resolver-all-btn" type="button" data-resolver-all="${esc(card.cardCode)}">Assign all ${item.qty}</button></div></article>`}
+  function resolverCandidates(item){let candidates=dedupe(item.candidates||[]);if(resolverSearch.trim()){const q=compact(resolverSearch);const catalog=window.RiftboundApp?.getCatalog?.()||[];const extra=catalog.filter(c=>compact(`${cardName(c)} ${c.cardSet||''} ${c.cardNumber||''} ${c.cardCode||''}`).includes(q)).slice(0,30);candidates=dedupe([...candidates,...extra])}return candidates}
+  function renderResolver(){const problems=reviewItems();if(!problems.length){document.getElementById('spreadsheetResolverDialog')?.close();renderAnalysis();return}resolverIndex=Math.max(0,Math.min(resolverIndex,problems.length-1));const item=problems[resolverIndex],candidates=resolverCandidates(item),assigned=item.assignments.reduce((n,a)=>n+Number(a.qty||0),0),remaining=item.qty-assigned;const root=document.getElementById('spreadsheetResolverInner');if(!root)return;root.innerHTML=`<div class="modal-head"><div><h2>Choose the right printing</h2><p class="spreadsheet-subtitle">Problem ${resolverIndex+1} of ${problems.length} • Spreadsheet row ${item.row}</p></div><button class="close-btn" data-close-resolver>×</button></div><div class="resolver-row-summary"><div><small>Spreadsheet says</small><strong>${esc(rowLabel(item))}</strong></div><div><small>Total copies in row</small><strong>${item.qty}</strong></div><div class="${remaining===0?'good':'warn'}"><small>Still to assign</small><strong>${remaining}</strong></div></div><p class="resolver-help">If you own multiple splash arts/printings, split the row quantity between them. The assigned quantities must total exactly <strong>${item.qty}</strong>.</p><div class="feature-search resolver-search"><input id="resolverCatalogSearch" type="search" value="${esc(resolverSearch)}" placeholder="Search full catalog if the right card is not shown"></div><div class="resolver-candidates">${candidates.length?candidates.map(c=>candidateCard(c,item)).join(''):'<div class="empty-state">No likely cards found. Search the catalog above.</div>'}</div><div id="resolverMessage" class="feature-message">${remaining===0?'Split is complete. Save this row.':remaining>0?`Assign ${remaining} more cop${remaining===1?'y':'ies'}.`:`You assigned ${Math.abs(remaining)} too many copies.`}</div><div class="resolver-footer"><button class="ghost-btn" data-resolver-ignore type="button">Ignore this row</button><div class="resolver-nav"><button class="ghost-btn" data-resolver-prev type="button" ${resolverIndex===0?'disabled':''}>Previous</button><button class="primary-btn" data-resolver-save type="button" ${remaining!==0?'disabled':''}>Save & Next</button></div></div>`}
+  function updateAssignment(code,qty){const problems=reviewItems(),item=problems[resolverIndex];if(!item)return;const catalog=window.RiftboundApp?.getCatalog?.()||[],card=catalog.find(c=>c.cardCode===code);if(!card)return;const n=Math.max(0,Math.min(item.qty,Math.floor(Number(qty)||0));item.assignments=item.assignments.filter(a=>a.card.cardCode!==code);if(n>0)item.assignments.push({card,qty:n});renderResolver()}
+  function saveResolvedRow(){const problems=reviewItems(),item=problems[resolverIndex];if(!item)return;const sum=item.assignments.reduce((n,a)=>n+Number(a.qty||0),0);if(sum!==item.qty)return;item.status='matched';item.method=item.assignments.length>1?'Split between printings':'Chosen printing';finalizeItemAssignments(item);analysis={items:analysis.items,...rebuildAggregate(analysis.items)};resolverSearch='';const left=reviewItems();resolverIndex=Math.min(resolverIndex,Math.max(0,left.length-1));if(left.length)renderResolver();else document.getElementById('spreadsheetResolverDialog')?.close();renderAnalysis()}
+  function ignoreResolvedRow(){const problems=reviewItems(),item=problems[resolverIndex];if(!item)return;item.status='ignored';item.method='Ignored by user';item.assignments=[];item.candidates=[];analysis={items:analysis.items,...rebuildAggregate(analysis.items)};resolverSearch='';const left=reviewItems();resolverIndex=Math.min(resolverIndex,Math.max(0,left.length-1));if(left.length)renderResolver();else document.getElementById('spreadsheetResolverDialog')?.close();renderAnalysis()}
+  function openResolver(){const problems=reviewItems();if(!problems.length)return;resolverIndex=0;resolverSearch='';renderResolver();document.getElementById('spreadsheetResolverDialog').showModal()}
+  function loadSheet(name){if(!book||!window.XLSX)return;const ws=book.Sheets[name];rows=window.XLSX.utils.sheet_to_json(ws,{defval:'',raw:false,blankrows:false});const headers=rows.length?Object.keys(rows[0]):[];mapping=detectMapping(headers);document.getElementById('spreadsheetRowCount').textContent=`${rows.length.toLocaleString()} data rows`;renderMapping();analyze()}
+  async function openFile(file){try{if(!file)return;fileName=file.name;document.getElementById('spreadsheetDrop').classList.add('loading');const XLSX=await loadXLSX();const data=await file.arrayBuffer();book=XLSX.read(data,{type:'array',cellDates:true});if(!book.SheetNames?.length)throw new Error('No worksheets were found in that file.');const select=document.getElementById('spreadsheetSheet');select.innerHTML=book.SheetNames.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');document.getElementById('spreadsheetFileName').textContent=fileName;document.getElementById('spreadsheetDrop').hidden=true;document.getElementById('spreadsheetWorkspace').hidden=false;loadSheet(book.SheetNames[0])}catch(err){console.error(err);alert(`Could not read spreadsheet: ${err.message}`)}finally{document.getElementById('spreadsheetDrop').classList.remove('loading')}}
+  function allocated(code,s){const decked=(s.decks||[]).reduce((n,d)=>n+Number(d.cards?.[code]||0),0);const loaned=(s.loans||[]).filter(l=>!l.returnedAt&&l.cardCode===code).reduce((n,l)=>n+Number(l.qty||0),0);return decked+loaned}
+  function applyImport(){if(!analysis?.aggregate?.size||analysis.review>0)return;const mode=document.getElementById('spreadsheetMode')?.value||'add';const s={inventory:{},decks:[],loans:[],transactions:[],...state()};s.inventory=s.inventory||{};s.transactions=s.transactions||[];let changed=0,allocationClamps=0;for(const [code,item] of analysis.aggregate){const current=Number(s.inventory[code]?.owned||0),minimum=allocated(code,s);let next=mode==='set'?item.qty:current+item.qty;if(next<minimum){next=minimum;allocationClamps++}next=Math.max(0,Math.floor(next));if(next===current)continue;s.inventory[code]={...(s.inventory[code]||{}),owned:next};changed++}s.transactions=[{id:uid('evt'),type:'activity',action:`Imported spreadsheet “${fileName}” • ${changed} cards ${mode==='set'?'set':'updated'}`,at:new Date().toISOString(),source:'spreadsheet',matchedRows:analysis.matchedRows,unmatchedRows:analysis.unmatched,ignoredRows:analysis.ignored},...s.transactions].slice(0,500);localStorage.setItem(APP_KEY,JSON.stringify(s));window.RiftboundApp?.reloadState?.();window.RiftboundCloud?.syncNow?.();const msg=document.getElementById('spreadsheetMessage');if(msg)msg.textContent=`Import complete: ${changed} unique cards updated${allocationClamps?`. ${allocationClamps} quantities were kept high enough for cards already in decks/loans.`:'.'}`;const btn=document.getElementById('confirmSpreadsheetImport');if(btn){btn.disabled=true;btn.textContent='Imported ✓'}setTimeout(()=>document.getElementById('spreadsheetImportDialog')?.close(),1500)}
+  function resetDialog(){book=null;rows=[];analysis=null;fileName='';mapping={code:'',number:'',set:'',name:'',qty:''};resolverIndex=0;resolverSearch='';const drop=document.getElementById('spreadsheetDrop'),work=document.getElementById('spreadsheetWorkspace'),file=document.getElementById('spreadsheetFile');if(drop)drop.hidden=false;if(work)work.hidden=true;if(file)file.value='';const btn=document.getElementById('confirmSpreadsheetImport');if(btn){btn.disabled=true;btn.textContent='Import Matched Cards'}}
+  function openDialog(){ensureDialog();resetDialog();document.getElementById('spreadsheetImportDialog').showModal()}
+  function bind(){document.addEventListener('click',e=>{if(e.target.closest('#openSpreadsheetImport'))return openDialog();if(e.target.closest('[data-close-spreadsheet]'))return document.getElementById('spreadsheetImportDialog')?.close();if(e.target.closest('[data-close-resolver]'))return document.getElementById('spreadsheetResolverDialog')?.close();if(e.target.closest('#chooseSpreadsheetFile')||e.target.closest('#changeSpreadsheetFile'))return document.getElementById('spreadsheetFile')?.click();if(e.target.closest('#confirmSpreadsheetImport'))return applyImport();if(e.target.closest('#reviewProblemCards'))return openResolver();const problems=e.target.closest('#showProblemsOnly');if(problems){const on=problems.dataset.on!=='1';problems.dataset.on=on?'1':'0';problems.textContent=on?'Show All':'Show Problems';renderAnalysis(on);return}const all=e.target.closest('[data-resolver-all]');if(all)return updateAssignment(all.dataset.resolverAll,reviewItems()[resolverIndex]?.qty||0);if(e.target.closest('[data-resolver-save]'))return saveResolvedRow();if(e.target.closest('[data-resolver-ignore]'))return ignoreResolvedRow();if(e.target.closest('[data-resolver-prev]')){resolverIndex=Math.max(0,resolverIndex-1);resolverSearch='';return renderResolver()}});document.addEventListener('change',e=>{if(e.target.id==='spreadsheetFile'){openFile(e.target.files?.[0]);return}if(e.target.id==='spreadsheetSheet'){loadSheet(e.target.value);return}if(e.target.matches('[data-sheet-map]')){mapping[e.target.dataset.sheetMap]=e.target.value;analyze();return}if(e.target.matches('[data-resolver-qty]')){updateAssignment(e.target.dataset.resolverQty,e.target.value);return}});document.addEventListener('input',e=>{if(e.target.id==='resolverCatalogSearch'){resolverSearch=e.target.value;clearTimeout(window.__rbResolverSearchTimer);window.__rbResolverSearchTimer=setTimeout(renderResolver,120)}});document.addEventListener('dragover',e=>{if(e.target.closest('#spreadsheetDrop')){e.preventDefault();e.target.closest('#spreadsheetDrop').classList.add('dragover')}});document.addEventListener('dragleave',e=>{const d=e.target.closest?.('#spreadsheetDrop');if(d)d.classList.remove('dragover')});document.addEventListener('drop',e=>{const d=e.target.closest?.('#spreadsheetDrop');if(!d)return;e.preventDefault();d.classList.remove('dragover');openFile(e.dataTransfer?.files?.[0])})}
+  function init(){ensureDialog();ensureSettingsRow();bind();const observer=new MutationObserver(()=>ensureSettingsRow());observer.observe(document.body,{childList:true,subtree:true})}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

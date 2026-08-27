@@ -104,7 +104,7 @@
     const minSide=Math.min(width,height);
     for(const c of constellations){
       const angle=reducedMotion.matches?0:Math.sin(time*c.speed+c.phase)*.045;
-      const pulse=reducedMotion.matches?.52:.42+.16*Math.sin(time*.001+c.phase);
+      const pulse=reducedMotion.matches ? .52 : .42+.16*Math.sin(time*.001+c.phase);
       const pts=c.points.map(([x,y])=>{
         const [rx,ry]=rotatePoint(x,y,.5,.5,angle);
         return [rx*width+pointer.x*10,ry*height+pointer.y*8];

@@ -1,0 +1,19 @@
+/* Real Riftbound rune thumbnails + cosmic audio polish */
+.domain-glyph.rune-art-glyph{position:relative;display:inline-block;width:22px;height:22px;min-width:22px;margin-right:7px;border-radius:7px;border:1px solid rgba(255,255,255,.16);background-image:var(--rune-art);background-size:245% auto;background-position:50% 35%;background-repeat:no-repeat;box-shadow:0 0 12px rgba(124,230,255,.12),inset 0 0 0 1px rgba(255,255,255,.04);font-size:0!important;line-height:0;overflow:hidden;vertical-align:-6px;transform:translateZ(0)}
+.domain-glyph.rune-art-glyph::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(125deg,rgba(255,255,255,.15),transparent 34%,transparent 68%,rgba(124,230,255,.09));pointer-events:none}
+.filter-chip:hover .domain-glyph.rune-art-glyph,.filter-chip.active .domain-glyph.rune-art-glyph{transform:translateY(-1px) scale(1.06);border-color:rgba(219,246,255,.42);box-shadow:0 0 16px rgba(124,230,255,.25),inset 0 0 0 1px rgba(255,255,255,.06)}
+.storage-box h3 .domain-glyph.rune-art-glyph{width:27px;height:27px;min-width:27px;margin-right:9px;border-radius:8px;background-size:235% auto;vertical-align:-7px}
+.filter-chip[data-value="Fury"] .rune-art-glyph,.storage-box[data-domain="fury"] .rune-art-glyph{box-shadow:0 0 15px rgba(255,128,96,.2)}
+.filter-chip[data-value="Calm"] .rune-art-glyph,.storage-box[data-domain="calm"] .rune-art-glyph{box-shadow:0 0 15px rgba(91,226,167,.2)}
+.filter-chip[data-value="Mind"] .rune-art-glyph,.storage-box[data-domain="mind"] .rune-art-glyph{box-shadow:0 0 15px rgba(103,169,255,.22)}
+.filter-chip[data-value="Body"] .rune-art-glyph,.storage-box[data-domain="body"] .rune-art-glyph{box-shadow:0 0 15px rgba(255,164,77,.22)}
+.filter-chip[data-value="Chaos"] .rune-art-glyph,.storage-box[data-domain="chaos"] .rune-art-glyph{box-shadow:0 0 15px rgba(207,119,255,.23)}
+.filter-chip[data-value="Order"] .rune-art-glyph,.storage-box[data-domain="order"] .rune-art-glyph{box-shadow:0 0 15px rgba(255,218,105,.23)}
+
+.audio-pack-note{margin:9px 0 0;color:#7289b1;font-size:.64rem;line-height:1.45}.audio-pack-note strong{color:#9db5db}.sound-volume{width:118px;accent-color:#7ce6ff}.sound-level{display:inline-block;min-width:33px;text-align:right;color:#a8bddf;font-size:.7rem;font-weight:800}.sound-test{border:1px solid rgba(124,230,255,.15);background:rgba(124,230,255,.06);color:#dff8ff;border-radius:8px;padding:6px 8px;font-size:.7rem;font-weight:800}.sound-test:hover{background:rgba(124,230,255,.11)}
+.sound-active .settings-popover{box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 28px rgba(124,230,255,.09)}
+.sound-active #soundToggle{box-shadow:0 0 14px rgba(124,230,255,.2)}
+.sound-active #soundToggle:checked{box-shadow:0 0 16px rgba(124,230,255,.38)}
+
+@media(max-width:700px){.domain-glyph.rune-art-glyph{width:20px;height:20px;min-width:20px;margin-right:5px;border-radius:6px}.storage-box h3 .domain-glyph.rune-art-glyph{width:24px;height:24px;min-width:24px}.sound-volume{width:100px}}
+@media(prefers-reduced-motion:reduce){.domain-glyph.rune-art-glyph{transition:none!important;transform:none!important}}

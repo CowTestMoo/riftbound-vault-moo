@@ -1,0 +1,162 @@
+name: Sync Riftbound card prices
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '47 8 * * *'
+  push:
+    paths:
+      - '.github/workflows/sync-card-prices.yml'
+      - 'data/cards.json'
+
+permissions:
+  contents: write
+
+jobs:
+  prices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build daily TCGplayer price map
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, re, time, urllib.request, datetime, pathlib
+
+          BASE='https://tcgcsv.com'
+          CATEGORY=89
+          UA='RiftboundVault/1.0 (+https://cowtestmoo.github.io/riftbound-vault-moo/)'
+
+          def fetch_json(url):
+              req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/json'})
+              with urllib.request.urlopen(req,timeout=45) as r:
+                  return json.load(r)
+
+          def fetch_text(url):
+              req=urllib.request.Request(url,headers={'User-Agent':UA})
+              with urllib.request.urlopen(req,timeout=45) as r:
+                  return r.read().decode().strip()
+
+          def norm_text(v):
+              return re.sub(r'[^a-z0-9]+','',str(v or '').lower())
+
+          def norm_num(v):
+              s=str(v or '').upper().strip().replace(' ', '')
+              if not s:return ''
+              if '//' in s:
+                  s=s.split('//',1)[0]
+              if '/' in s:
+                  s=s.split('/',1)[0]
+              m=re.fullmatch(r'([A-Z]*)(0*)(\d+)',s)
+              return (m.group(1)+str(int(m.group(3)))) if m else re.sub(r'[^A-Z0-9]','',s)
+
+          def ext(product,key):
+              for x in product.get('extendedData') or []:
+                  if str(x.get('name','')).lower()==key.lower():
+                      return x.get('value')
+              return None
+
+          raw=json.loads(pathlib.Path('data/cards.json').read_text(encoding='utf-8'))
+          cards=raw if isinstance(raw,list) else raw.get('cards',[])
+          groups=fetch_json(f'{BASE}/tcgplayer/{CATEGORY}/groups').get('results',[])
+          group_by_norm={norm_text(g.get('name')):g for g in groups}
+          wanted_sets=sorted({str(c.get('cardSet') or c.get('setName') or '').strip() for c in cards if c.get('cardSet') or c.get('setName')})
+
+          def group_for(set_name):
+              n=norm_text(set_name)
+              if n in group_by_norm:return group_by_norm[n]
+              options=[]
+              for gn,g in group_by_norm.items():
+                  if n and (n in gn or gn in n): options.append((abs(len(gn)-len(n)),g))
+              return sorted(options,key=lambda x:x[0])[0][1] if options else None
+
+          caches={}
+          for set_name in wanted_sets:
+              g=group_for(set_name)
+              if not g:continue
+              gid=g['groupId']
+              products=fetch_json(f'{BASE}/tcgplayer/{CATEGORY}/{gid}/products').get('results',[])
+              time.sleep(.18)
+              prices=fetch_json(f'{BASE}/tcgplayer/{CATEGORY}/{gid}/prices').get('results',[])
+              time.sleep(.18)
+              by_product={}
+              for p in prices:
+                  if p.get('marketPrice') is None:continue
+                  by_product.setdefault(p['productId'],[]).append(p)
+              number_index={}
+              name_index={}
+              for p in products:
+                  number_index.setdefault(norm_num(ext(p,'Number')),[]).append(p)
+                  name_index.setdefault(norm_text(p.get('name')),[]).append(p)
+              caches[set_name]=(g,by_product,number_index,name_index)
+
+          def pick_product(c,cache):
+              _,_,nums,names=cache
+              number=norm_num(c.get('cardNumber') or c.get('number'))
+              cname=norm_text(c.get('fullName') or c.get('name'))
+              candidates=list(nums.get(number,[])) if number else []
+              if len(candidates)>1 and cname:
+                  exact=[p for p in candidates if norm_text(p.get('name'))==cname]
+                  if exact:candidates=exact
+              if candidates:return candidates[0]
+              named=names.get(cname,[]) if cname else []
+              return named[0] if named else None
+
+          def pick_price(rows):
+              if not rows:return None
+              preferred=['normal','standard','foil','holofoil']
+              for label in preferred:
+                  for p in rows:
+                      if str(p.get('subTypeName','')).lower()==label and p.get('marketPrice') is not None:return p
+              return next((p for p in rows if p.get('marketPrice') is not None),None)
+
+          out={}
+          matched=0
+          for c in cards:
+              code=str(c.get('cardCode') or c.get('code') or '')
+              set_name=str(c.get('cardSet') or c.get('setName') or '').strip()
+              if not code or set_name not in caches:continue
+              cache=caches[set_name]
+              product=pick_product(c,cache)
+              if not product:continue
+              price=pick_price(cache[1].get(product.get('productId'),[]))
+              if not price:continue
+              market=price.get('marketPrice')
+              if market is None:continue
+              out[code]={
+                  'market':market,
+                  'low':price.get('lowPrice'),
+                  'mid':price.get('midPrice'),
+                  'printing':price.get('subTypeName') or 'Normal',
+                  'productId':product.get('productId'),
+                  'url':product.get('url') or ''
+              }
+              matched+=1
+
+          try: source_updated=fetch_text(f'{BASE}/last-updated.txt')
+          except Exception: source_updated=None
+          payload={
+              'schemaVersion':1,
+              'source':'TCGplayer via TCGCSV',
+              'updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'sourceUpdatedAt':source_updated,
+              'categoryId':CATEGORY,
+              'matchedCards':matched,
+              'catalogCards':len(cards),
+              'cards':out
+          }
+          pathlib.Path('data/prices.json').write_text(json.dumps(payload,separators=(',',':')),encoding='utf-8')
+          print(f'Matched prices for {matched}/{len(cards)} catalog entries')
+          PY
+      - name: Commit changed prices
+        shell: bash
+        run: |
+          if git diff --quiet -- data/prices.json; then
+            echo 'No price changes.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/prices.json
+          git commit -m 'Update daily Riftbound market prices'
+          git push

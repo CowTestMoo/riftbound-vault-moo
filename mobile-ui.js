@@ -18,23 +18,24 @@
     return bar;
   }
 
-  function ensureToolsButton(bar){
-    let btn=document.getElementById('mobileToolsUtilityBtn');
-    if(!btn){
-      btn=document.createElement('button');
-      btn.id='mobileToolsUtilityBtn';
-      btn.type='button';
-      btn.className='mobile-utility-btn';
-      btn.innerHTML='<b>✦</b><span>Tools</span>';
-      btn.addEventListener('click',e=>{
-        e.preventDefault();
-        document.querySelector('.tab[data-tab="tools"]')?.click();
-        syncActive();
-        window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-      });
+  function ensureCenterTools(){
+    const nav=document.getElementById('mobileNav');
+    if(!nav)return null;
+    document.getElementById('mobileToolsUtilityBtn')?.remove();
+    let tools=nav.querySelector('[data-mobile-tab="tools"]');
+    if(!tools){
+      tools=document.createElement('button');
+      tools.type='button';
+      tools.dataset.mobileTab='tools';
+      tools.innerHTML='<b>✦</b>Tools';
     }
-    if(btn.parentElement!==bar)bar.prepend(btn);
-    return btn;
+    tools.classList.add('mobile-tools-center');
+    const cards=nav.querySelector('[data-mobile-tab="cards"]');
+    const storage=nav.querySelector('[data-mobile-tab="storage"]');
+    const decks=nav.querySelector('[data-mobile-tab="decks"]');
+    const loans=nav.querySelector('[data-mobile-tab="loans"]');
+    [cards,storage,tools,decks,loans].filter(Boolean).forEach(x=>nav.appendChild(x));
+    return tools;
   }
 
   function prepareBrowseButton(bar){
@@ -44,7 +45,7 @@
     browse.classList.add('mobile-utility-btn','mobile-library-utility');
     const settings=document.getElementById('uxSettingsBtn');
     if(settings?.parentElement===bar)bar.insertBefore(browse,settings);
-    else if(browse.parentElement!==bar)bar.appendChild(browse);
+    else if(browse.parentElement!==bar)bar.prepend(browse);
   }
 
   function prepareSettingsButton(bar){
@@ -72,27 +73,30 @@
     }
   }
 
-  function removeRedundantMobileTools(){document.querySelectorAll('#mobileNav [data-mobile-tab="tools"]').forEach(x=>x.remove())}
-
   function syncActive(){
-    const tools=document.querySelector('.tab[data-tab="tools"]')?.classList.contains('active');
-    document.getElementById('mobileToolsUtilityBtn')?.classList.toggle('active',!!tools);
+    const active=document.querySelector('.tab.active')?.dataset.tab||'';
+    document.querySelectorAll('#mobileNav [data-mobile-tab]').forEach(b=>{
+      const on=b.dataset.mobileTab===active;
+      b.classList.toggle('active',on);
+      if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+    });
   }
 
   function apply(){
-    removeRedundantMobileTools();
     const bar=ensureMobileUtilityBar();
     if(!bar)return;
+    ensureCenterTools();
     if(!mq.matches){restoreDesktopControls();syncActive();return}
 
-    ensureToolsButton(bar);
     prepareSettingsButton(bar);
     if(signedIn())prepareBrowseButton(bar);
     else document.getElementById('browseLibrariesUtilityBtn')?.remove();
     syncActive();
   }
 
-  document.addEventListener('click',e=>{if(e.target.closest('.tab,[data-mobile-tab],#mobileToolsUtilityBtn'))setTimeout(syncActive,0)},true);
+  document.addEventListener('click',e=>{
+    if(e.target.closest('.tab,[data-mobile-tab]'))setTimeout(syncActive,0);
+  },true);
   window.addEventListener('riftbound-social-ready',()=>setTimeout(apply,0));
   window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(apply,80));
   window.addEventListener('riftbound-cloud-restored',()=>setTimeout(apply,40));

@@ -8,7 +8,7 @@
   const AUTH_KEY='riftbound-vault-auth-v1';
   const META_KEY='riftbound-vault-sync-meta-v1';
   let session=readJSON(AUTH_KEY,null);
-  let syncing=false,syncTimer=0,suppress=false,reconciling=null;
+  let syncing=false,syncTimer=0,suppress=false,reconciling=null,lastBackgroundCheck=0;
 
   function readJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'')||fallback}catch{return fallback}}
   function writeJSON(key,value){localStorage.setItem(key,JSON.stringify(value))}
@@ -18,12 +18,14 @@
   function restore(s){suppress=true;try{if(s?.vault)writeJSON(APP_KEY,s.vault);if(s?.ux)writeJSON(UX_KEY,s.ux)}finally{suppress=false}window.RiftboundApp?.reloadState?.();window.dispatchEvent(new CustomEvent('riftbound-cloud-restored'))}
   function meta(){return readJSON(META_KEY,{})||{}}
   function setMeta(p){writeJSON(META_KEY,{...meta(),...p})}
+  function localHash(){return hash(snapshot())}
+  function hasUnsyncedLocal(){const m=meta();return !!m.lastSyncedHash&&localHash()!==m.lastSyncedHash}
 
   const nativeSet=Storage.prototype.setItem;
   Storage.prototype.setItem=function(k,v){
     nativeSet.call(this,k,v);
     if(this===localStorage&&!suppress&&(k===APP_KEY||k===UX_KEY)){
-      setMeta({localChangedAt:nowIso(),localHash:hash(snapshot())});
+      setMeta({localChangedAt:nowIso(),localHash:localHash()});
       window.dispatchEvent(new CustomEvent('riftbound-local-change',{detail:{key:k}}));
       scheduleSync();
     }
@@ -37,11 +39,11 @@
   }
 
   function normalizeSession(data){return{access_token:data.access_token,refresh_token:data.refresh_token,expiresAt:Date.now()+Number(data.expires_in||3600)*1000,user:data.user||session?.user||null}}
-  function saveSession(s){session=s;if(s)writeJSON(AUTH_KEY,s);else localStorage.removeItem(AUTH_KEY);renderCloudUI()}
+  function saveSession(s){session=s;if(s)writeJSON(AUTH_KEY,s);else localStorage.removeItem(AUTH_KEY);renderCloudUI();window.dispatchEvent(new CustomEvent('riftbound-auth-storage-change'))}
   async function refreshSession(){if(!session?.refresh_token)return null;const data=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});saveSession(normalizeSession(data));return session}
   async function freshSession(){if(!session)return null;if(Number(session.expiresAt||0)<Date.now()+90000){try{return await refreshSession()}catch{saveSession(null);return null}}return session}
   async function signIn(email,password){const data=await request('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});saveSession(normalizeSession(data));await reconcileAfterLogin();return session}
-  async function signOut(){const s=await freshSession();if(s){try{await request('/auth/v1/logout',{method:'POST',token:s.access_token})}catch{}}saveSession(null);setStatus('Local only','idle')}
+  async function signOut(){clearTimeout(syncTimer);syncTimer=0;const s=await freshSession();if(s){try{await request('/auth/v1/logout',{method:'POST',token:s.access_token})}catch{}}saveSession(null);setStatus('Local only','idle')}
 
   async function consumeInviteHash(){
     if(!location.hash||!location.hash.includes('access_token='))return false;
@@ -60,9 +62,9 @@
   async function fetchRemote(){const s=await freshSession();if(!s)return null;const rows=await request(`/rest/v1/vault_state?user_id=eq.${encodeURIComponent(s.user.id)}&select=state,updated_at`,{token:s.access_token});return Array.isArray(rows)&&rows[0]?rows[0]:null}
   async function pushRemote(){
     const s=await freshSession();if(!s||syncing)return false;syncing=true;setStatus('Syncing…','syncing');
-    try{const snap=snapshot(),rows=await request('/rest/v1/vault_state?on_conflict=user_id',{method:'POST',token:s.access_token,headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:{user_id:s.user.id,state:snap,updated_at:nowIso()}}),updated=Array.isArray(rows)&&rows[0]?.updated_at||nowIso();setMeta({lastRemoteAt:updated,lastSyncedHash:hash(snap),lastSyncAt:nowIso()});setStatus('Synced','ok');return true}catch(err){setStatus('Sync error','error');console.error('Cloud sync failed',err);return false}finally{syncing=false}
+    try{const snap=snapshot(),rows=await request('/rest/v1/vault_state?on_conflict=user_id',{method:'POST',token:s.access_token,headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:{user_id:s.user.id,state:snap,updated_at:nowIso()}}),updated=Array.isArray(rows)&&rows[0]?.updated_at||nowIso(),h=hash(snap);setMeta({lastRemoteAt:updated,lastSyncedHash:h,localHash:h,lastSyncAt:nowIso()});setStatus('Synced','ok');return true}catch(err){setStatus(navigator.onLine?'Sync error':'Offline','error');console.error('Cloud sync failed',err);return false}finally{syncing=false}
   }
-  function scheduleSync(){clearTimeout(syncTimer);if(session)syncTimer=setTimeout(()=>pushRemote(),900)}
+  function scheduleSync(){clearTimeout(syncTimer);if(session)syncTimer=setTimeout(async()=>{syncTimer=0;await pushRemote()},900)}
 
   async function reconcileAfterLogin(){
     if(reconciling)return reconciling;
@@ -70,16 +72,22 @@
       setStatus('Checking cloud…','syncing');
       const remote=await fetchRemote();if(!session)return;
       if(!remote){await pushRemote();return}
-      const remoteState=remote.state||{},local=snapshot(),remoteHash=hash(remoteState),localHash=hash(local);
-      if(remoteHash!==localHash)restore(remoteState);
-      setMeta({lastRemoteAt:remote.updated_at,lastSyncedHash:remoteHash,lastSyncAt:nowIso()});setStatus(remoteHash===localHash?'Synced':'Cloud loaded','ok');
-    })().catch(err=>{console.error('Cloud reconcile failed',err);setStatus('Sync error','error')}).finally(()=>{reconciling=null});
+      const remoteState=remote.state||{},local=snapshot(),remoteHash=hash(remoteState),localNowHash=hash(local);
+      if(remoteHash!==localNowHash)restore(remoteState);
+      setMeta({lastRemoteAt:remote.updated_at,lastSyncedHash:remoteHash,localHash:remoteHash,lastSyncAt:nowIso()});setStatus(remoteHash===localNowHash?'Synced':'Cloud loaded','ok');
+    })().catch(err=>{console.error('Cloud reconcile failed',err);setStatus(navigator.onLine?'Sync error':'Offline','error')}).finally(()=>{reconciling=null});
     return reconciling;
+  }
+
+  async function backgroundSync(force=false){
+    if(!session||syncing||reconciling||syncTimer||!navigator.onLine)return;
+    const now=Date.now();if(!force&&now-lastBackgroundCheck<15000)return;lastBackgroundCheck=now;
+    if(hasUnsyncedLocal())await pushRemote();else await reconcileAfterLogin();
   }
 
   function ensureAuthDialog(){if(document.getElementById('cloudAuthDialog'))return;const d=document.createElement('dialog');d.id='cloudAuthDialog';d.className='modal cloud-auth-dialog';d.innerHTML=`<div class="modal-inner cloud-auth-inner"><div class="modal-head"><h2>Riftbound Cloud</h2><button class="close-btn" data-cloud-close>×</button></div><p class="cloud-help"><strong>Invite only.</strong> Sign in with an account that has been invited by the vault owner.</p><label>Email<input id="cloudEmail" type="email" autocomplete="email" placeholder="you@example.com"></label><label>Password<input id="cloudPassword" type="password" autocomplete="current-password" minlength="8" placeholder="Password"></label><div id="cloudAuthMessage" class="cloud-auth-message"></div><div class="modal-actions"><button id="cloudSignIn" class="primary-btn" type="button">Sign In</button></div><p class="cloud-invite-note">Need access? Ask the vault owner to send you an invitation.</p></div>`;document.body.appendChild(d)}
   function ensureCloudSettings(){const panel=document.getElementById('uxSettings');if(!panel||document.getElementById('cloudSettingRow'))return;const row=document.createElement('div');row.id='cloudSettingRow';row.className='setting-row cloud-setting-row';row.innerHTML=`<div class="setting-copy"><strong>Cloud sync</strong><small id="cloudSettingText">Invite-only • Local only</small></div><div class="cloud-setting-actions"><button id="cloudAccountBtn" class="sound-test" type="button">Sign In</button></div>`;panel.appendChild(row);renderCloudUI()}
-  function renderCloudUI(){ensureAuthDialog();const signed=!!session?.user,account=document.getElementById('cloudAccountBtn'),text=document.getElementById('cloudSettingText');if(account)account.textContent=signed?'Account':'Sign In';if(text)text.textContent=signed?`${session.user.email||'Signed in'} • Auto sync • ${document.getElementById('cloudSyncStatus')?.textContent||'Ready'}`:'Invite-only • Local only'}
+  function renderCloudUI(){ensureAuthDialog();const signed=!!session?.user,account=document.getElementById('cloudAccountBtn'),text=document.getElementById('cloudSettingText');if(account)account.textContent=signed?'Account':'Sign In';if(text)text.textContent=signed?`${session.user.email||'Signed in'} • Always syncing • ${document.getElementById('cloudSyncStatus')?.textContent||'Ready'}`:'Invite-only • Local only'}
   function ensureStatus(){if(document.getElementById('cloudSyncStatus'))return;const p=document.getElementById('catalogStatus');if(!p)return;const s=document.createElement('span');s.id='cloudSyncStatus';s.className='cloud-sync-status';s.textContent=session?'Cloud ready':'Invite only';p.insertAdjacentElement('afterend',s)}
   function setStatus(text,state='idle'){ensureStatus();const e=document.getElementById('cloudSyncStatus');if(e){e.textContent=text;e.dataset.state=state}renderCloudUI()}
   function openAuth(){ensureAuthDialog();document.getElementById('cloudAuthMessage').textContent='';document.getElementById('cloudAuthDialog').showModal()}
@@ -96,7 +104,11 @@
     const consumed=await consumeInviteHash();
     if(!consumed)setStatus(session?'Cloud ready':'Invite only','idle');
     if(session&&!document.getElementById('cloudPasswordSetupDialog')?.open){await freshSession();if(session)await reconcileAfterLogin()}
+    window.addEventListener('focus',()=>backgroundSync());
+    window.addEventListener('online',()=>backgroundSync(true));
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')backgroundSync()});
+    setInterval(()=>{if(document.visibilityState==='visible')backgroundSync(true)},60000);
   }
-  window.RiftboundCloud={syncNow:()=>pushRemote(),signIn,signOut,getSession:()=>session,reconcile:reconcileAfterLogin};
+  window.RiftboundCloud={syncNow:()=>pushRemote(),signIn,signOut,getSession:()=>session,reconcile:reconcileAfterLogin,backgroundSync};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

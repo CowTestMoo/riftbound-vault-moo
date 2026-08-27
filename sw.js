@@ -1,5 +1,5 @@
-const CACHE='riftbound-vault-shell-v3';
-const SHELL=['./','./index.html','./styles.css','./app.js','./manifest.json','./icon.svg'];
+const CACHE='riftbound-vault-shell-v4';
+const SHELL=['./','./index.html','./styles.css','./cosmic-effects.css','./cosmic.js','./app.js','./manifest.json','./icon.svg'];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();

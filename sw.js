@@ -1,4 +1,4 @@
-const CACHE='riftbound-vault-shell-v33';
+const CACHE='riftbound-vault-shell-v34';
 const SHELL=['./','./index.html','./styles.css','./cosmic-effects.css','./polish.css','./cosmic-cleanup.css','./ux.css','./vault-features.css','./invite-lock.css','./spreadsheet-import.css','./storage-customizer.css','./social-libraries.css','./ui-refinements.css','./theme-system.css','./neon-background.css','./friend-library-extras.css','./mobile-ui.css','./mobile-experience.css','./cosmic.js','./polish.js','./theme-bootstrap.js','./ux.js','./dashboard-toggles.js','./app.js','./app-bridge.js','./storage-customizer.js','./auth-session-pref.js','./cloud-sync.js','./invite-lock.js','./vault-features.js','./spreadsheet-import.js','./smart-import-badges.js','./export-enhancer.js','./social-libraries.js','./utility-controls.js','./theme-system-v3.js','./cosmic-audio.js','./neon-background.js','./neon-audio.js','./profile-switching.js','./friend-library-extras.js','./mobile-ui.js','./mobile-experience.js','./live-values.js','./scanner-ai.js','./manifest.json','./icon.svg'];
 
 self.addEventListener('install',event=>{

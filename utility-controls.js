@@ -3,15 +3,28 @@
 
   function ensureUtilityStack(){
     const settings=document.getElementById('uxSettingsBtn');
-    if(!settings)return;
+    const shell=document.querySelector('.app-shell');
+    const topbar=document.querySelector('.topbar');
+    if(!settings||!shell||!topbar)return;
+
+    let bar=document.getElementById('globalUtilityBar');
+    if(!bar){
+      bar=document.createElement('div');
+      bar.id='globalUtilityBar';
+      bar.className='global-utility-bar';
+      topbar.insertAdjacentElement('afterend',bar);
+    }
+
     let stack=document.getElementById('cosmicUtilityStack');
     if(!stack){
       stack=document.createElement('div');
       stack.id='cosmicUtilityStack';
       stack.className='cosmic-utility-stack';
-      settings.parentElement?.insertBefore(stack,settings);
+      bar.appendChild(stack);
     }
+
     if(settings.parentElement!==stack)stack.appendChild(settings);
+
     let browse=document.getElementById('browseLibrariesUtilityBtn');
     if(!browse){
       browse=document.createElement('button');
@@ -20,6 +33,8 @@
       browse.type='button';
       browse.textContent='Browse Libraries';
       browse.addEventListener('click',()=>window.RiftboundSocial?.openBrowser?.());
+      stack.appendChild(browse);
+    }else if(browse.parentElement!==stack){
       stack.appendChild(browse);
     }
   }

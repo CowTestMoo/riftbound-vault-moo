@@ -37,20 +37,22 @@
     return btn;
   }
 
+  function prepareBrowseButton(bar){
+    const browse=document.getElementById('browseLibrariesUtilityBtn');
+    if(!browse)return;
+    browse.textContent='Libraries';
+    browse.classList.add('mobile-utility-btn','mobile-library-utility');
+    const settings=document.getElementById('uxSettingsBtn');
+    if(settings?.parentElement===bar)bar.insertBefore(browse,settings);
+    else if(browse.parentElement!==bar)bar.appendChild(browse);
+  }
+
   function prepareSettingsButton(bar){
     const settings=document.getElementById('uxSettingsBtn');
     if(!settings)return;
     settings.textContent='Settings';
     settings.classList.add('mobile-utility-btn','mobile-settings-utility');
     if(settings.parentElement!==bar)bar.appendChild(settings);
-  }
-
-  function prepareBrowseButton(bar){
-    const browse=document.getElementById('browseLibrariesUtilityBtn');
-    if(!browse)return;
-    browse.textContent='Libraries';
-    browse.classList.add('mobile-utility-btn','mobile-library-utility');
-    if(browse.parentElement!==bar)bar.insertBefore(browse,bar.lastElementChild||null);
   }
 
   function restoreDesktopControls(){
@@ -70,9 +72,7 @@
     }
   }
 
-  function removeRedundantMobileTools(){
-    document.querySelectorAll('#mobileNav [data-mobile-tab="tools"]').forEach(x=>x.remove());
-  }
+  function removeRedundantMobileTools(){document.querySelectorAll('#mobileNav [data-mobile-tab="tools"]').forEach(x=>x.remove())}
 
   function syncActive(){
     const tools=document.querySelector('.tab[data-tab="tools"]')?.classList.contains('active');
@@ -86,16 +86,13 @@
     if(!mq.matches){restoreDesktopControls();syncActive();return}
 
     ensureToolsButton(bar);
+    prepareSettingsButton(bar);
     if(signedIn())prepareBrowseButton(bar);
     else document.getElementById('browseLibrariesUtilityBtn')?.remove();
-    prepareSettingsButton(bar);
     syncActive();
   }
 
-  document.addEventListener('click',e=>{
-    if(e.target.closest('.tab,[data-mobile-tab],#mobileToolsUtilityBtn'))setTimeout(syncActive,0);
-  },true);
-
+  document.addEventListener('click',e=>{if(e.target.closest('.tab,[data-mobile-tab],#mobileToolsUtilityBtn'))setTimeout(syncActive,0)},true);
   window.addEventListener('riftbound-social-ready',()=>setTimeout(apply,0));
   window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(apply,80));
   window.addEventListener('riftbound-cloud-restored',()=>setTimeout(apply,40));

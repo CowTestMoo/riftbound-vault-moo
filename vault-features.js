@@ -19,8 +19,9 @@
   function readState(){try{return {...baseState(),...JSON.parse(localStorage.getItem(APP_KEY)||'{}')}}catch{return baseState()}}
   function saveState(s,{render=true}={}){
     localStorage.setItem(APP_KEY,JSON.stringify(s));
-    if(render)window.RiftboundApp?.reloadState?.();
-    renderFeatures();
+    if(!render)return;
+    if(window.RiftboundApp?.reloadState)window.RiftboundApp.reloadState();
+    else renderFeatures();
   }
   function logAction(s,action,extra={}){s.transactions=[{id:uid('evt'),type:'activity',action,at:new Date().toISOString(),...extra},...(s.transactions||[])].slice(0,500)}
   function owned(code,s=readState()){return Number(s.inventory?.[code]?.owned||0)}
@@ -102,7 +103,7 @@
     const i=(s.decks||[]).findIndex(d=>d.id===deckDraft.id);
     if(i>=0)s.decks[i]=deckDraft;else s.decks.push(deckDraft);
     logAction(s,`${i>=0?'Updated':'Created'} deck “${deckDraft.name}”`,{deckId:deckDraft.id});
-    saveState(s);document.getElementById('deckDialog').close();renderDecks();
+    saveState(s);document.getElementById('deckDialog').close();
   }
 
   function renderLoans(){
@@ -129,7 +130,7 @@
   function saveLoan(){
     if(!loanDraft?.cardCode)return;loanDraft.borrower=(document.getElementById('loanBorrower')?.value||'').trim();loanDraft.notes=(document.getElementById('loanNotes')?.value||'').trim();
     const msg=document.getElementById('loanMessage');if(!loanDraft.borrower){msg.textContent='Enter who is borrowing the card.';return}if(loanDraft.qty>available(loanDraft.cardCode)){msg.textContent='Not enough available copies.';return}
-    const s=readState();s.loans.push(loanDraft);logAction(s,`Loaned ${loanDraft.qty}× ${nameOf(byCode.get(loanDraft.cardCode)||{cardCode:loanDraft.cardCode})} to ${loanDraft.borrower}`,{loanId:loanDraft.id});saveState(s);document.getElementById('loanDialog').close();renderLoans();
+    const s=readState();s.loans.push(loanDraft);logAction(s,`Loaned ${loanDraft.qty}× ${nameOf(byCode.get(loanDraft.cardCode)||{cardCode:loanDraft.cardCode})} to ${loanDraft.borrower}`,{loanId:loanDraft.id});saveState(s);document.getElementById('loanDialog').close();
   }
 
   function renderWishlist(){
@@ -169,7 +170,7 @@
   }
   function saveTrade(status){
     tradeDraft.name=(document.getElementById('tradeName')?.value||'').trim()||'Untitled Trade';tradeDraft.partner=(document.getElementById('tradePartner')?.value||'').trim();tradeDraft.notes=(document.getElementById('tradeNotes')?.value||'').trim();if(status)tradeDraft.status=status;tradeDraft.updatedAt=new Date().toISOString();
-    const s=readState(),i=(s.trades||[]).findIndex(t=>t.id===tradeDraft.id);if(i>=0)s.trades[i]=tradeDraft;else s.trades.push(tradeDraft);logAction(s,`${i>=0?'Updated':'Created'} trade “${tradeDraft.name}”`,{tradeId:tradeDraft.id});saveState(s);document.getElementById('tradeDialog').close();renderTrades();
+    const s=readState(),i=(s.trades||[]).findIndex(t=>t.id===tradeDraft.id);if(i>=0)s.trades[i]=tradeDraft;else s.trades.push(tradeDraft);logAction(s,`${i>=0?'Updated':'Created'} trade “${tradeDraft.name}”`,{tradeId:tradeDraft.id});saveState(s);document.getElementById('tradeDialog').close();
   }
 
   function renderActivity(){
@@ -223,7 +224,7 @@
   }
 
   function importBackup(file){
-    const reader=new FileReader();reader.onload=()=>{try{const raw=JSON.parse(reader.result),incoming=raw.state||raw.vault||raw;if(!incoming||typeof incoming!=='object'||!incoming.inventory)throw new Error('This file does not contain a Riftbound Vault state.');if(!confirm('Replace this device’s current vault with the imported backup?'))return;localStorage.setItem(APP_KEY,JSON.stringify({...baseState(),...incoming}));window.RiftboundApp?.reloadState?.();renderFeatures();window.RiftboundCloud?.syncNow?.();alert('Backup imported.')}catch(err){alert(`Import failed: ${err.message}`)}};reader.readAsText(file);
+    const reader=new FileReader();reader.onload=()=>{try{const raw=JSON.parse(reader.result),incoming=raw.state||raw.vault||raw;if(!incoming||typeof incoming!=='object'||!incoming.inventory)throw new Error('This file does not contain a Riftbound Vault state.');if(!confirm('Replace this device’s current vault with the imported backup?'))return;localStorage.setItem(APP_KEY,JSON.stringify({...baseState(),...incoming}));window.RiftboundApp?.reloadState?.();window.RiftboundCloud?.syncNow?.();alert('Backup imported.')}catch(err){alert(`Import failed: ${err.message}`)}};reader.readAsText(file);
   }
 
   document.addEventListener('click',e=>{
@@ -284,16 +285,10 @@
     if(e.target.id==='fastBulkSearch'&&e.key==='Enter'){e.preventDefault();const first=document.querySelector('[data-first-bulk] [data-fast-bulk]');if(first)fastAdjust(first.dataset.fastBulk,e.shiftKey?4:1)}
   });
 
-  const observer=new MutationObserver(()=>{
-    ensureTools();ensureSettingsTools();
-    const dl=document.getElementById('deckList');if(dl&&!dl.querySelector('[data-feature-deck-list]'))renderDecks();
-    const ll=document.getElementById('loanList');if(ll&&!ll.querySelector('[data-feature-loan-list]'))renderLoans();
-  });
-
   async function init(){
     await ensureCatalog();ensureTools();ensureSettingsTools();renderFeatures();
-    observer.observe(document.body,{childList:true,subtree:true});
     window.addEventListener('riftbound-cloud-restored',()=>{ensureCatalog().then(renderFeatures)});
+    window.addEventListener('riftbound-ui-render',e=>{const scopes=e.detail?.scopes||[];if(scopes.includes('decks')||scopes.includes('loans'))renderFeatures()});
   }
   window.RiftboundFeatures={render:renderFeatures,undo:undoLastInventory};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

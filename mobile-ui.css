@@ -1,0 +1,41 @@
+/* Mobile-only navigation cleanup. Desktop remains unchanged. */
+.mobile-utility-bar{display:none}
+.friend-user-self{border-color:rgba(255,225,159,.26)!important;background:linear-gradient(90deg,rgba(255,225,159,.06),rgba(121,160,255,.05))!important}
+.friend-user-self>span{border-color:rgba(255,225,159,.28)!important;color:#fff1bd!important}
+body[data-vault-theme="neon"] .friend-user-self{border-color:rgba(57,255,216,.30)!important;background:linear-gradient(90deg,rgba(57,255,216,.07),rgba(255,60,247,.05))!important}
+body[data-vault-theme="neon"] .friend-user-self>span{border-color:rgba(57,255,216,.32)!important;color:#9affeb!important}
+
+@media(max-width:700px){
+  /* The fixed four-button nav is the only primary mobile navigation. */
+  .app-shell>.tabs{display:none!important}
+  #mobileNav [data-mobile-tab="tools"]{display:none!important}
+  .mobile-nav{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}
+
+  /* Compact secondary actions live below the stats instead of competing with primary navigation. */
+  .mobile-utility-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:8px 0 12px;padding:0 1px;position:relative;z-index:24}
+  .mobile-utility-btn{appearance:none;min-width:0;min-height:38px;display:flex!important;align-items:center;justify-content:center;gap:5px;border:1px solid rgba(121,160,255,.16)!important;border-radius:11px!important;background:linear-gradient(180deg,rgba(13,23,43,.86),rgba(7,13,27,.90))!important;color:#9eb1d2!important;padding:8px 7px!important;font:inherit!important;font-size:.69rem!important;font-weight:850!important;line-height:1!important;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)!important}
+  .mobile-utility-btn b{font-size:.82rem;color:#c9eaff;font-weight:900}
+  .mobile-utility-btn:hover,.mobile-utility-btn:active,.mobile-utility-btn.active{color:#eefaff!important;border-color:rgba(124,230,255,.34)!important;background:linear-gradient(180deg,rgba(22,43,68,.95),rgba(10,23,43,.96))!important;box-shadow:0 0 15px rgba(124,230,255,.07)!important}
+  .mobile-settings-utility{margin-left:0!important}
+  .global-utility-bar{display:none!important}
+
+  body[data-vault-theme="neon"] .mobile-utility-btn{border-color:rgba(57,255,216,.18)!important;background:linear-gradient(180deg,rgba(10,24,30,.90),rgba(8,9,20,.94))!important;color:#8bcfc5!important;box-shadow:-1px 0 8px rgba(255,60,247,.025),1px 0 10px rgba(57,255,216,.035)!important}
+  body[data-vault-theme="neon"] .mobile-utility-btn b{color:#82ffe9}
+  body[data-vault-theme="neon"] .mobile-utility-btn:hover,body[data-vault-theme="neon"] .mobile-utility-btn:active,body[data-vault-theme="neon"] .mobile-utility-btn.active{color:#bafff2!important;border-color:rgba(57,255,216,.42)!important;background:linear-gradient(180deg,rgba(16,45,48,.96),rgba(8,20,28,.98))!important;box-shadow:-2px 0 10px rgba(255,60,247,.07),2px 0 14px rgba(57,255,216,.10)!important}
+
+  /* Friend browser gets clearer mobile profile switching controls. */
+  .friend-header{grid-template-columns:1fr!important;gap:9px!important}
+  .friend-header>div{order:1}
+  .friend-header #friendBackBtn{order:2;width:100%}
+  .friend-header-actions{order:3;grid-column:auto!important;display:grid!important;grid-template-columns:1fr 1fr;gap:7px!important}
+  .friend-header-actions .ghost-btn{width:100%!important;min-width:0!important}
+  .friend-header #friendBrowseAnother{width:100%!important}
+  .friend-header h1{font-size:clamp(1.35rem,7vw,2rem)!important}
+
+  main{padding-top:2px}
+}
+
+@media(max-width:390px){
+  .mobile-utility-btn{font-size:.64rem!important;padding-inline:5px!important}
+  .mobile-utility-btn b{font-size:.75rem}
+}

@@ -3,113 +3,58 @@
   const SUPABASE_URL='https://ivqtgclygiikagfuicjd.supabase.co';
   const SUPABASE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
   const APP_KEY='riftbound-vault-v2';
-  let profile=null,publishing=false,publishTimer=0,browseProfiles=[],browseLibraries=new Map(),browseUserId='',browseQuery='';
+  let profile=null,publishing=false,publishTimer=0,profiles=[],libraries=new Map(),selectedId='',friendTab='collection',query='',typeFilter='All',domainFilter='All',setFilter='All';
 
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const cardName=c=>c?.fullName||c?.name||c?.cardCode||'Unknown card';
-  const readState=()=>{try{return JSON.parse(localStorage.getItem(APP_KEY)||'{}')}catch{return {}}};
   const session=()=>window.RiftboundCloud?.getSession?.()||null;
   const catalog=()=>window.RiftboundApp?.getCatalog?.()||[];
+  const readState=()=>{try{return JSON.parse(localStorage.getItem(APP_KEY)||'{}')}catch{return {}}};
+  const nameOf=c=>c?.fullName||c?.name||c?.cardCode||'Unknown card';
+  const byCode=()=>new Map(catalog().map(c=>[c.cardCode,c]));
 
-  async function api(path,{method='GET',body,token,prefer}={}){
-    const headers={apikey:SUPABASE_KEY,'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{}) ,...(prefer?{Prefer:prefer}:{})};
+  async function api(path,{method='GET',body,prefer}={}){
+    const s=session();if(!s?.access_token)throw new Error('Sign in to browse libraries.');
+    const headers={apikey:SUPABASE_KEY,Authorization:`Bearer ${s.access_token}`,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})};
     const res=await fetch(SUPABASE_URL+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
     let data=null;try{data=await res.json()}catch{}
-    if(!res.ok){const e=new Error(data?.message||data?.error_description||data?.details||data?.hint||`HTTP ${res.status}`);e.status=res.status;throw e}
-    return data;
+    if(!res.ok){const e=new Error(data?.message||data?.error_description||data?.details||`HTTP ${res.status}`);e.status=res.status;throw e}return data;
   }
 
-  function renderAccountArea(){
-    const top=document.querySelector('.topbar');if(!top)return;
-    let area=document.getElementById('socialAccountArea');
+  function renderAccount(){
+    const top=document.querySelector('.topbar');if(!top)return;let area=document.getElementById('socialAccountArea');
     if(!area){area=document.createElement('div');area.id='socialAccountArea';area.className='social-account-area';top.appendChild(area)}
-    const wanted=session()?.user&&profile?`<span id="usernameChip" class="username-chip" title="Public username">@${esc(profile.username)}</span>`:'';
+    const wanted=session()?.user&&profile?`<span id="usernameChip" class="username-chip" title="Your username">@${esc(profile.username)}</span>`:'';
     if(area.innerHTML!==wanted)area.innerHTML=wanted;
   }
+  function setUsernameRequired(v){document.body.classList.toggle('username-required',!!v)}
 
-  function setUsernameRequired(required){document.body.classList.toggle('username-required',!!required)}
+  function ensureUsernameDialog(){if(document.getElementById('usernameSetupDialog'))return;const d=document.createElement('dialog');d.id='usernameSetupDialog';d.className='modal username-setup-dialog';d.innerHTML=`<div class="modal-inner username-setup-inner"><div class="username-mark">@</div><h2>Choose your username</h2><p>Create a unique username so friends can find your library. You will still sign in with email and password.</p><label>Username<div class="username-input-wrap"><span>@</span><input id="usernameInput" maxlength="24" autocomplete="off" placeholder="riftbound_friend"></div></label><small class="username-rules">3–24 characters. Letters, numbers, and underscores only.</small><div id="usernameMessage" class="feature-message"></div><button id="saveUsernameBtn" class="primary-btn" type="button">Continue</button></div>`;d.addEventListener('cancel',e=>{if(!profile)e.preventDefault()});d.addEventListener('close',()=>{if(session()?.user&&!profile)setTimeout(showUsername,0)});document.body.appendChild(d)}
+  function showUsername(){ensureUsernameDialog();setUsernameRequired(true);const d=document.getElementById('usernameSetupDialog');if(!d.open)d.showModal();setTimeout(()=>document.getElementById('usernameInput')?.focus(),30)}
+  async function loadOwnProfile(){const s=session();if(!s?.user){profile=null;setUsernameRequired(false);renderAccount();window.dispatchEvent(new CustomEvent('riftbound-social-ready'));return}const rows=await api(`/rest/v1/profiles?user_id=eq.${encodeURIComponent(s.user.id)}&select=user_id,username`);profile=rows?.[0]||null;renderAccount();if(!profile)showUsername();else{setUsernameRequired(false);document.getElementById('usernameSetupDialog')?.close();schedulePublish(20)}window.dispatchEvent(new CustomEvent('riftbound-social-ready'))}
+  async function saveUsername(){const s=session(),input=document.getElementById('usernameInput'),msg=document.getElementById('usernameMessage');if(!s?.user)return;const username=(input?.value||'').trim();if(!/^[A-Za-z0-9_]{3,24}$/.test(username)){msg.textContent='Use 3–24 letters, numbers, or underscores.';return}msg.textContent='Checking username…';try{const existing=await api(`/rest/v1/profiles?username=ilike.${encodeURIComponent(username)}&select=user_id`);if(existing.some(x=>x.user_id!==s.user.id)){msg.textContent='That username is already taken.';return}const rows=await api('/rest/v1/profiles?on_conflict=user_id',{method:'POST',prefer:'resolution=merge-duplicates,return=representation',body:{user_id:s.user.id,username,updated_at:new Date().toISOString()}});profile=rows?.[0]||{user_id:s.user.id,username};setUsernameRequired(false);renderAccount();schedulePublish(20);setTimeout(()=>document.getElementById('usernameSetupDialog')?.close(),120)}catch(err){msg.textContent=err.status===409?'That username is already taken.':`Could not save username: ${err.message}`}}
 
-  function ensureDialogs(){
-    if(!document.getElementById('usernameSetupDialog')){
-      const d=document.createElement('dialog');d.id='usernameSetupDialog';d.className='modal username-setup-dialog';
-      d.innerHTML=`<div class="modal-inner username-setup-inner"><div class="username-mark">@</div><h2>Choose your username</h2><p>You need a unique username before entering the vault so friends can find your public card library. You will still sign in with email and password.</p><label>Username<div class="username-input-wrap"><span>@</span><input id="usernameInput" maxlength="24" autocomplete="off" placeholder="riftbound_friend"></div></label><small class="username-rules">3–24 characters. Letters, numbers, and underscores only.</small><div id="usernameMessage" class="feature-message"></div><button id="saveUsernameBtn" class="primary-btn" type="button">Continue</button></div>`;
-      d.addEventListener('cancel',e=>{if(!profile)e.preventDefault()});
-      d.addEventListener('close',()=>{if(session()?.user&&!profile)setTimeout(showUsernameSetup,0)});
-      document.body.appendChild(d);
-    }
-    if(!document.getElementById('publicLibrariesDialog')){
-      const d=document.createElement('dialog');d.id='publicLibrariesDialog';d.className='modal public-libraries-dialog';
-      d.innerHTML=`<div class="modal-inner public-libraries-inner"><div class="modal-head"><div><h2>Browse Libraries</h2><p class="spreadsheet-subtitle">Read-only public Riftbound collections</p></div><button class="close-btn" data-close-public-libraries>×</button></div><div class="public-library-layout"><aside class="public-profile-panel"><div class="feature-search"><input id="publicProfileSearch" type="search" placeholder="Find a username"></div><div id="publicProfileList" class="public-profile-list"></div></aside><section class="public-library-panel"><div id="publicViewingBanner" class="public-viewing-banner" hidden></div><div class="feature-search public-card-search"><input id="publicCardSearch" type="search" placeholder="Search this library"></div><div id="publicLibraryStats" class="public-library-stats"></div><div id="publicLibraryGrid" class="public-library-grid"><div class="empty-state">Choose a username to browse their collection.</div></div></section></div></div>`;
-      document.body.appendChild(d);
-    }
-  }
+  function publicPayload(){const s=readState(),cards={},wishlist={},loans=[];for(const [code,row] of Object.entries(s.inventory||{})){const n=Math.max(0,Math.floor(Number(row?.owned||0)));if(n)cards[code]=n}for(const [code,w] of Object.entries(s.wishlist||{})){const qty=Math.max(1,Math.floor(Number(w?.qty||1)));wishlist[code]={qty,priority:String(w?.priority||'Normal').slice(0,20)}}for(const l of (s.loans||[])){if(l?.returnedAt||!l?.cardCode)continue;loans.push({cardCode:String(l.cardCode),qty:Math.max(1,Math.floor(Number(l.qty||1))),borrowedAt:l.borrowedAt||null})}return{cards,wishlist,loans}}
+  async function publish(){const s=session();if(!s?.user||!profile||publishing)return;publishing=true;try{const p=publicPayload();await api('/rest/v1/public_libraries?on_conflict=user_id',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:{user_id:s.user.id,...p,updated_at:new Date().toISOString()}})}catch(err){console.error('Library publish failed',err)}finally{publishing=false}}
+  function schedulePublish(ms=500){clearTimeout(publishTimer);publishTimer=setTimeout(publish,ms)}
 
-  function showUsernameSetup(){
-    ensureDialogs();setUsernameRequired(true);renderAccountArea();
-    const d=document.getElementById('usernameSetupDialog');if(!d.open)d.showModal();
-    setTimeout(()=>document.getElementById('usernameInput')?.focus(),40);
-  }
+  function ensureFriendScreen(){if(document.getElementById('friendLibraryScreen'))return;const s=document.createElement('section');s.id='friendLibraryScreen';s.className='friend-library-screen';s.hidden=true;s.innerHTML=`<header class="friend-header"><button id="friendBackBtn" class="ghost-btn" type="button">← Back</button><div><small>READ-ONLY LIBRARY</small><h1 id="friendName">Browse Libraries</h1></div><button id="friendBrowseAnother" class="ghost-btn" type="button">Browse Another</button></header><div id="friendChooser" class="friend-chooser"><div class="friend-chooser-card"><h2>Browse Libraries</h2><p>Choose a signed-in Riftbound Vault user.</p><input id="friendUserSearch" type="search" placeholder="Search username"><div id="friendUserList" class="friend-user-list"></div></div></div><div id="friendLibraryBody" class="friend-library-body" hidden><nav class="friend-subtabs"><button class="active" data-friend-tab="collection">Collection</button><button data-friend-tab="wishlist">Wishlist</button><button data-friend-tab="loaned">Loaned Out</button></nav><div id="friendStats" class="friend-stats"></div><div id="friendFilters" class="friend-filters"><input id="friendCardSearch" type="search" placeholder="Search this library"><div id="friendTypeFilters" class="filter-row"></div><div id="friendDomainFilters" class="filter-row domain-row"></div><div id="friendSetFilters" class="filter-row"></div></div><div id="friendGrid" class="friend-grid"></div></div>`;document.body.appendChild(s)}
+  function animateEntry(){const theme=document.body.dataset.vaultTheme==='neon'?'neon':'cosmic',x=document.createElement('div');x.className=`library-transition ${theme}`;x.innerHTML=theme==='neon'?'<div class="neon-gate"><span>ACCESSING LIBRARY</span><b>/// DATA LINK ///</b></div>':'<div class="cosmic-gate"><i></i><span>ENTERING LIBRARY</span><b>✦</b></div>';document.body.appendChild(x);requestAnimationFrame(()=>x.classList.add('go'));setTimeout(()=>x.remove(),1450)}
 
-  async function loadOwnProfile(){
-    const s=session();
-    if(!s?.access_token||!s?.user){profile=null;setUsernameRequired(false);renderAccountArea();return null}
-    const rows=await api(`/rest/v1/profiles?user_id=eq.${encodeURIComponent(s.user.id)}&select=user_id,username,created_at,updated_at`,{token:s.access_token});
-    profile=Array.isArray(rows)&&rows[0]?rows[0]:null;
-    renderAccountArea();
-    if(!profile)showUsernameSetup();
-    else{setUsernameRequired(false);document.getElementById('usernameSetupDialog')?.close();schedulePublish(20)}
-    return profile;
-  }
+  async function loadBrowseData(){const [p,l]=await Promise.all([api('/rest/v1/profiles?select=user_id,username&order=username.asc'),api('/rest/v1/public_libraries?select=user_id,cards,wishlist,loans,updated_at')]);profiles=Array.isArray(p)?p:[];libraries=new Map((Array.isArray(l)?l:[]).map(x=>[x.user_id,x]))}
+  function renderUsers(q=''){const root=document.getElementById('friendUserList');if(!root)return;const n=String(q).toLowerCase().trim(),list=profiles.filter(p=>!n||p.username.toLowerCase().includes(n));root.innerHTML=list.length?list.map(p=>{const lib=libraries.get(p.user_id),count=Object.keys(lib?.cards||{}).length;return `<button class="friend-user-row" data-friend-user="${esc(p.user_id)}"><span>${esc(p.username[0]?.toUpperCase()||'?')}</span><div><strong>@${esc(p.username)}</strong><small>${count} unique cards</small></div><b>›</b></button>`}).join(''):'<div class="empty-state">No usernames found.</div>'}
+  function cardMeta(code){return byCode().get(code)}
+  function domainOf(c){const d=(c?.domains||[])[0]||c?.domain||'Unknown';return d}
+  function buildFilters(entries){const cards=entries.map(x=>x.card).filter(Boolean),types=['All',...new Set(cards.map(c=>c.cardType).filter(Boolean))],domains=['All',...new Set(cards.flatMap(c=>c.domains?.length?c.domains:[c.domain]).filter(Boolean))],sets=['All',...new Set(cards.map(c=>c.cardSet).filter(Boolean))];const row=(id,vals,key)=>{const el=document.getElementById(id);if(el)el.innerHTML=vals.map(v=>`<button class="filter-chip ${(key==='type'?typeFilter:key==='domain'?domainFilter:setFilter)===v?'active':''}" data-friend-filter="${key}" data-value="${esc(v)}">${esc(v)}</button>`).join('')};row('friendTypeFilters',types,'type');row('friendDomainFilters',domains,'domain');row('friendSetFilters',sets,'set')}
+  function visibleCollection(lib){const map=friendTab==='wishlist'?lib?.wishlist||{}:friendTab==='loaned'?Object.fromEntries((lib?.loans||[]).map((l,i)=>[`${l.cardCode}::${i}`,l])):lib?.cards||{};return Object.entries(map).map(([key,val])=>{const code=friendTab==='loaned'?val.cardCode:key,card=cardMeta(code),qty=friendTab==='collection'?Number(val||0):Number(val?.qty||1);return{key,code,card,qty,val}}).filter(x=>x.qty>0)}
+  function renderFriend(){const p=profiles.find(x=>x.user_id===selectedId),lib=libraries.get(selectedId),body=document.getElementById('friendLibraryBody'),chooser=document.getElementById('friendChooser'),grid=document.getElementById('friendGrid');if(!p||!lib){body.hidden=true;chooser.hidden=false;return}chooser.hidden=true;body.hidden=false;document.getElementById('friendName').textContent=`@${p.username}`;let entries=visibleCollection(lib);buildFilters(entries);const needle=query.toLowerCase().trim();entries=entries.filter(x=>{const c=x.card;if(needle&&!String(`${nameOf(c||{cardCode:x.code})} ${c?.cardSet||''} ${c?.cardNumber||''}`).toLowerCase().includes(needle))return false;if(typeFilter!=='All'&&c?.cardType!==typeFilter)return false;if(domainFilter!=='All'&&!((c?.domains||[c?.domain]).includes(domainFilter)))return false;if(setFilter!=='All'&&c?.cardSet!==setFilter)return false;return true});const cardsTotal=Object.values(lib.cards||{}).reduce((a,b)=>a+Number(b||0),0),wishTotal=Object.values(lib.wishlist||{}).reduce((a,w)=>a+Number(w?.qty||1),0),loanTotal=(lib.loans||[]).reduce((a,l)=>a+Number(l?.qty||1),0);document.getElementById('friendStats').innerHTML=`<div><strong>${cardsTotal}</strong><small>Owned</small></div><div><strong>${Object.keys(lib.cards||{}).length}</strong><small>Unique</small></div><div><strong>${wishTotal}</strong><small>Wishlist</small></div><div><strong>${loanTotal}</strong><small>Loaned</small></div>`;document.querySelectorAll('[data-friend-tab]').forEach(b=>b.classList.toggle('active',b.dataset.friendTab===friendTab));grid.innerHTML=entries.length?entries.map(x=>`<article class="friend-card">${x.card?.imageUrl?`<img loading="lazy" src="${esc(x.card.imageUrl)}" alt="${esc(nameOf(x.card))}">`:'<div class="friend-placeholder">No image</div>'}<span class="qty-badge">×${x.qty}</span><div><strong>${esc(nameOf(x.card||{cardCode:x.code}))}</strong><small>${esc(x.card?.cardSet||x.code)} ${esc(x.card?.cardNumber||'')}</small>${friendTab==='wishlist'?`<em>${esc(x.val?.priority||'Normal')} priority</em>`:''}${friendTab==='loaned'&&x.val?.borrowedAt?`<em>Loaned ${new Date(x.val.borrowedAt).toLocaleDateString()}</em>`:''}</div></article>`).join(''):'<div class="empty-state">No cards match these filters.</div>'}
+  function chooseUser(id){selectedId=id;friendTab='collection';query='';typeFilter=domainFilter=setFilter='All';const s=document.getElementById('friendCardSearch');if(s)s.value='';animateEntry();setTimeout(renderFriend,380)}
+  async function openBrowser(){if(!session()?.user)return;ensureFriendScreen();const screen=document.getElementById('friendLibraryScreen');screen.hidden=false;document.body.classList.add('friend-library-open');document.getElementById('friendChooser').hidden=false;document.getElementById('friendLibraryBody').hidden=true;document.getElementById('friendUserList').innerHTML='<div class="empty-state">Loading libraries…</div>';try{await loadBrowseData();renderUsers()}catch(err){document.getElementById('friendUserList').innerHTML=`<div class="empty-state">Could not load libraries: ${esc(err.message)}</div>`}}
+  function closeBrowser(){document.getElementById('friendLibraryScreen').hidden=true;document.body.classList.remove('friend-library-open')}
+  function browseAnother(){selectedId='';document.getElementById('friendChooser').hidden=false;document.getElementById('friendLibraryBody').hidden=true;document.getElementById('friendName').textContent='Browse Libraries';renderUsers(document.getElementById('friendUserSearch')?.value||'')}
 
-  async function saveUsername(){
-    const s=session(),input=document.getElementById('usernameInput'),msg=document.getElementById('usernameMessage');
-    if(!s?.access_token||!s?.user)return;
-    const username=(input?.value||'').trim();
-    if(!/^[A-Za-z0-9_]{3,24}$/.test(username)){msg.textContent='Use 3–24 letters, numbers, or underscores.';return}
-    msg.textContent='Checking username…';
-    try{
-      const existing=await api(`/rest/v1/profiles?username=ilike.${encodeURIComponent(username)}&select=user_id,username`,{token:s.access_token});
-      if(existing.some(x=>x.user_id!==s.user.id)){msg.textContent='That username is already taken.';return}
-      const rows=await api('/rest/v1/profiles?on_conflict=user_id',{method:'POST',token:s.access_token,prefer:'resolution=merge-duplicates,return=representation',body:{user_id:s.user.id,username,updated_at:new Date().toISOString()}});
-      profile=Array.isArray(rows)&&rows[0]?rows[0]:{user_id:s.user.id,username};
-      setUsernameRequired(false);renderAccountArea();schedulePublish(20);msg.textContent='Username saved.';
-      setTimeout(()=>document.getElementById('usernameSetupDialog')?.close(),180);
-    }catch(err){msg.textContent=err.status===409?'That username is already taken.':`Could not save username: ${err.message}`}
-  }
+  function bind(){document.addEventListener('click',e=>{let x;if(e.target.closest('#saveUsernameBtn'))return saveUsername();if(e.target.closest('#browseLibrariesUtilityBtn'))return openBrowser();if(e.target.closest('#friendBackBtn'))return closeBrowser();if(e.target.closest('#friendBrowseAnother'))return browseAnother();if(x=e.target.closest('[data-friend-user]'))return chooseUser(x.dataset.friendUser);if(x=e.target.closest('[data-friend-tab]')){friendTab=x.dataset.friendTab;query='';typeFilter=domainFilter=setFilter='All';const q=document.getElementById('friendCardSearch');if(q)q.value='';return renderFriend()}if(x=e.target.closest('[data-friend-filter]')){const k=x.dataset.friendFilter,v=x.dataset.value;if(k==='type')typeFilter=v;else if(k==='domain')domainFilter=v;else setFilter=v;return renderFriend()}},true);document.addEventListener('input',e=>{if(e.target.id==='friendUserSearch')renderUsers(e.target.value);if(e.target.id==='friendCardSearch'){query=e.target.value;renderFriend()}});window.addEventListener('riftbound-local-change',e=>{if(e.detail?.key===APP_KEY)schedulePublish()});window.addEventListener('riftbound-cloud-restored',()=>{loadOwnProfile().catch(console.error);schedulePublish(700)});window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(()=>loadOwnProfile().catch(console.error),60))}
 
-  function publicCards(){const inv=readState().inventory||{},out={};for(const [code,row] of Object.entries(inv)){const n=Math.max(0,Math.floor(Number(row?.owned||0)));if(n>0)out[code]=n}return out}
-  async function publishLibrary(){const s=session();if(!s?.access_token||!s?.user||!profile||publishing)return;publishing=true;try{await api('/rest/v1/public_libraries?on_conflict=user_id',{method:'POST',token:s.access_token,prefer:'resolution=merge-duplicates,return=minimal',body:{user_id:s.user.id,cards:publicCards(),updated_at:new Date().toISOString()}})}catch(err){console.error('Public library publish failed',err)}finally{publishing=false}}
-  function schedulePublish(delay=700){clearTimeout(publishTimer);publishTimer=setTimeout(publishLibrary,delay)}
-
-  async function loadPublicData(){const [profiles,libraries]=await Promise.all([api('/rest/v1/profiles?select=user_id,username,updated_at&order=username.asc'),api('/rest/v1/public_libraries?select=user_id,cards,updated_at')]);browseProfiles=Array.isArray(profiles)?profiles:[];browseLibraries=new Map((Array.isArray(libraries)?libraries:[]).map(x=>[x.user_id,x]))}
-  function renderProfileList(q=''){const root=document.getElementById('publicProfileList');if(!root)return;const needle=String(q||'').trim().toLowerCase(),list=browseProfiles.filter(p=>!needle||p.username.toLowerCase().includes(needle));root.innerHTML=list.length?list.map(p=>{const lib=browseLibraries.get(p.user_id),count=Object.keys(lib?.cards||{}).length;return `<button class="public-profile-row ${browseUserId===p.user_id?'active':''}" data-public-user="${esc(p.user_id)}"><span class="public-avatar">${esc(p.username.slice(0,1).toUpperCase())}</span><span><strong>@${esc(p.username)}</strong><small>${count} unique card${count===1?'':'s'}</small></span><b>›</b></button>`}).join(''):'<div class="recent-empty">No usernames found.</div>'}
-  function renderPublicLibrary(){
-    const grid=document.getElementById('publicLibraryGrid'),banner=document.getElementById('publicViewingBanner'),stats=document.getElementById('publicLibraryStats');if(!grid)return;
-    const p=browseProfiles.find(x=>x.user_id===browseUserId),lib=browseLibraries.get(browseUserId),cards=lib?.cards||{};
-    if(!p){banner.hidden=true;stats.innerHTML='';grid.innerHTML='<div class="empty-state">Choose a username to browse their collection.</div>';return}
-    banner.hidden=false;banner.innerHTML=`<span class="readonly-dot"></span><div><strong>Viewing @${esc(p.username)}’s Library</strong><small>Read-only view • Your own vault is not being changed.</small></div>`;
-    const byCode=new Map(catalog().map(c=>[c.cardCode,c])),needle=browseQuery.trim().toLowerCase();
-    const entries=Object.entries(cards).map(([code,n])=>({code,n:Number(n||0),card:byCode.get(code)})).filter(x=>x.n>0&&(!needle||String(`${cardName(x.card)} ${x.card?.cardSet||''} ${x.card?.cardNumber||''} ${x.code}`).toLowerCase().includes(needle))).sort((a,b)=>String(a.card?.cardSet||'').localeCompare(String(b.card?.cardSet||''))||String(a.card?.cardNumber||'').localeCompare(String(b.card?.cardNumber||''),undefined,{numeric:true}));
-    const total=Object.values(cards).reduce((n,v)=>n+Number(v||0),0),unique=Object.keys(cards).filter(c=>Number(cards[c])>0).length;
-    stats.innerHTML=`<div><strong>${total}</strong><small>Cards</small></div><div><strong>${unique}</strong><small>Unique</small></div><div><strong>${lib?.updated_at?new Date(lib.updated_at).toLocaleDateString():'—'}</strong><small>Last updated</small></div>`;
-    grid.innerHTML=entries.length?entries.map(x=>`<article class="public-card-tile">${x.card?.imageUrl?`<img loading="lazy" src="${esc(x.card.imageUrl)}" alt="${esc(cardName(x.card))}">`:'<div class="public-card-placeholder">No image</div>'}<span class="qty-badge">×${x.n}</span><div><strong>${esc(cardName(x.card||{cardCode:x.code}))}</strong><small>${esc(x.card?.cardSet||x.code)} ${esc(x.card?.cardNumber||'')}</small></div></article>`).join(''):'<div class="empty-state">No cards match this search.</div>'
-  }
-  async function openBrowser(){ensureDialogs();const d=document.getElementById('publicLibrariesDialog');d.showModal();document.getElementById('publicProfileList').innerHTML='<div class="recent-empty">Loading libraries…</div>';try{await loadPublicData();if(browseProfiles.length&&!browseUserId)browseUserId=browseProfiles[0].user_id;renderProfileList();renderPublicLibrary()}catch(err){document.getElementById('publicProfileList').innerHTML=`<div class="recent-empty">Could not load libraries: ${esc(err.message)}</div>`}}
-
-  function bind(){
-    document.addEventListener('click',e=>{
-      if(e.target.closest('#browseLibrariesUtilityBtn,#vaultLockBrowse')){openBrowser();return}
-      if(e.target.closest('[data-close-public-libraries]')){document.getElementById('publicLibrariesDialog')?.close();return}
-      if(e.target.closest('#saveUsernameBtn')){saveUsername();return}
-      const user=e.target.closest('[data-public-user]');if(user){browseUserId=user.dataset.publicUser;browseQuery='';const q=document.getElementById('publicCardSearch');if(q)q.value='';renderProfileList(document.getElementById('publicProfileSearch')?.value||'');renderPublicLibrary()}
-    },true);
-    document.addEventListener('input',e=>{if(e.target.id==='publicProfileSearch')renderProfileList(e.target.value);if(e.target.id==='publicCardSearch'){browseQuery=e.target.value;renderPublicLibrary()}});
-    window.addEventListener('riftbound-local-change',e=>{if(e.detail?.key===APP_KEY)schedulePublish()});
-    window.addEventListener('riftbound-cloud-restored',()=>{loadOwnProfile().catch(console.error);schedulePublish(1000)});
-    window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(()=>{loadOwnProfile().catch(console.error)},50));
-  }
-
-  async function init(){ensureDialogs();renderAccountArea();bind();if(session()?.user){try{await loadOwnProfile()}catch(err){console.error('Profile load failed',err)}}}
-  window.RiftboundSocial={openBrowser,publish:publishLibrary,getProfile:()=>profile};
+  async function init(){ensureUsernameDialog();ensureFriendScreen();bind();renderAccount();if(session()?.user)try{await loadOwnProfile()}catch(err){console.error('Profile load failed',err)}}
+  window.RiftboundSocial={openBrowser,publish,getProfile:()=>profile};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

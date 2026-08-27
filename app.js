@@ -1,44 +1,171 @@
 'use strict';
-const CATALOG_URLS=['https://github.com/LouisCourrian/riftbound-cards/releases/latest/download/cards.json','https://huggingface.co/datasets/Wysme/riftbound-cards/resolve/main/cards.json'];
-const STORAGE_KEY='riftbound-vault-v1',PAGE_SIZE=120,DOMAINS=['Fury','Calm','Mind','Body','Chaos','Order'],TYPES=['All','Legend','Unit','Rune','Spell','Gear','Battlefield','Token'];
-const SAMPLE=[{cardCode:'demo-fury-001',fullName:'Demo Fury Unit',cardSet:'Demo',cardNumber:'001',domain:'Fury',domains:['Fury'],cardType:'Unit',cardTypeLabels:['Unit'],energy:2,imageUrl:''},{cardCode:'demo-mind-002',fullName:'Demo Mind Spell',cardSet:'Demo',cardNumber:'002',domain:'Mind',domains:['Mind'],cardType:'Spell',cardTypeLabels:['Spell'],energy:1,imageUrl:''}];
-let catalog=[],byCode=new Map(),visibleCount=PAGE_SIZE,filters={search:'',type:'All',domain:'All',set:'All',ownedOnly:false},state=loadState();
-const $=id=>document.getElementById(id),qsa=(s,r=document)=>[...r.querySelectorAll(s)];
-function fresh(){return{inventory:{},decks:[],loans:[],transactions:[]}}
-function loadState(){try{return{...fresh(),...JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}}catch{return fresh()}}
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));renderStats()}
-function uid(p='id'){return`${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`}
-function esc(v=''){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-function norm(v=''){return String(v).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'')}
-function name(c){return c.fullName||[c.name,c.subtitle].filter(Boolean).join(', ')||c.cardCode}
-function owned(c){return Number(state.inventory[c]?.owned||0)}
-function decked(c){return state.decks.reduce((s,d)=>s+Number(d.cards?.[c]||0),0)}
-function loaned(c){return state.loans.filter(l=>!l.returnedAt&&l.cardCode===c).reduce((s,l)=>s+Number(l.qty||0),0)}
-function avail(c){return Math.max(0,owned(c)-decked(c)-loaned(c))}
-function adjust(c,d,r='Manual adjustment'){const cur=owned(c),min=decked(c)+loaned(c),next=Math.max(min,cur+d);state.inventory[c]={...(state.inventory[c]||{}),owned:next};if(next!==cur)state.transactions.unshift({id:uid('txn'),cardCode:c,delta:next-cur,reason:r,at:new Date().toISOString()});save();renderAll()}
-function location(c){const domain=c.domain||c.domains?.[0]||'Unassigned',i=DOMAINS.indexOf(domain),labels=(c.cardTypeLabels||[]).map(norm),champ=labels.includes('champion'),unit=norm(c.cardType)==='unit'&&!champ;if(i<0)return{box:null,domain,bucket:'Unassigned',section:c.cardType||'Other'};const box=i*2+(unit?1:2);return{box,domain,bucket:unit?'Units':'Other',section:unit?`Energy ${Number(c.energy)>=6?'6+':(c.energy??'?')}`:(champ?'Champions':(c.cardType||'Other'))}}
-async function loadCatalog(){let err;for(const url of CATALOG_URLS){try{const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw Error(r.status);const d=await r.json();catalog=Array.isArray(d)?d:(d.cards||[]);if(!catalog.length)throw Error('empty');index();$('catalogStatus').textContent=`${catalog.length.toLocaleString()} cards loaded • local collection mode`;renderAll();return}catch(e){err=e}}catalog=SAMPLE;index();$('catalogStatus').textContent='Offline demo catalog loaded';console.warn(err);renderAll()}
-function index(){catalog.forEach(c=>{if(!c.cardCode)c.cardCode=c.code||c.id});byCode=new Map(catalog.map(c=>[c.cardCode,c]))}
-function renderAll(){renderFilters();renderCards();renderStats();renderStorage();renderDecks();renderLoans()}
-function renderStats(){const total=Object.keys(state.inventory).reduce((s,c)=>s+owned(c),0),unique=Object.keys(state.inventory).filter(c=>owned(c)>0).length,d=state.decks.reduce((s,x)=>s+Object.values(x.cards||{}).reduce((a,b)=>a+Number(b||0),0),0),l=state.loans.filter(x=>!x.returnedAt).reduce((s,x)=>s+Number(x.qty),0);$('statOwned').textContent=total;$('statUnique').textContent=unique;$('statDecks').textContent=d;$('statLoans').textContent=l;$('statAvailable').textContent=Math.max(0,total-d-l)}
-function chip(v,a,k){return`<button class="filter-chip ${a?'active':''}" data-kind="${k}" data-value="${esc(v)}">${esc(v)}</button>`}
-function renderFilters(){$('typeFilters').innerHTML=TYPES.map(x=>chip(x,filters.type===x,'type')).join('');$('domainFilters').innerHTML=['All',...DOMAINS].map(x=>chip(x,filters.domain===x,'domain')).join('');const sets=[...new Set(catalog.map(c=>c.cardSet).filter(Boolean))].sort();$('setFilters').innerHTML=['All',...sets].map(x=>chip(x,filters.set===x,'set')).join('')}
-function filtered(){const t=norm(filters.search);return catalog.filter(c=>{if(filters.ownedOnly&&owned(c.cardCode)<=0)return false;if(filters.type!=='All'&&norm(c.cardType)!==norm(filters.type)&&!(c.cardTypeLabels||[]).map(norm).includes(norm(filters.type)))return false;if(filters.domain!=='All'&&!(c.domains||[c.domain]).includes(filters.domain))return false;if(filters.set!=='All'&&c.cardSet!==filters.set)return false;if(t&&!norm([name(c),c.cardCode,c.cardNumber,c.cardSet,c.rarity,c.cardType].join(' ')).includes(t))return false;return true})}
-function tile(c){const q=owned(c.cardCode);return`<button class="card-tile" data-card="${esc(c.cardCode)}"><div class="card-image-wrap">${c.imageUrl?`<img class="card-image" loading="lazy" src="${esc(c.imageUrl)}" alt="${esc(name(c))}">`:`<div class="card-placeholder">${esc(name(c))}</div>`}</div>${q?`<span class="qty-badge">×${q}</span>`:''}<div class="card-caption"><strong>${esc(name(c))}</strong><small>${esc(c.cardSet||'')} ${esc(c.cardNumber||'')}</small></div></button>`}
-function renderCards(){const all=filtered(),show=all.slice(0,visibleCount);$('cardGrid').innerHTML=show.map(tile).join('')||'<div class="empty-state">No cards match these filters.</div>';$('loadMoreBtn').hidden=all.length<=visibleCount}
-function showCard(code){const c=byCode.get(code);if(!c)return;const l=location(c);$('cardDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>${esc(name(c))}</h2><button class="close-btn" data-close="cardDialog">×</button></div><div class="detail-layout"><div>${c.imageUrl?`<img class="detail-image" src="${esc(c.imageUrl)}">`:'<div class="detail-image card-placeholder">No image</div>'}</div><div><div class="detail-meta">${esc(c.cardSet||'')} • ${esc(c.cardType||'')} • ${esc((c.domains||[c.domain]).filter(Boolean).join(' / '))}</div><div class="info-grid"><div class="info-cell"><strong>${owned(code)}</strong><small>Total owned</small></div><div class="info-cell"><strong>${avail(code)}</strong><small>Available</small></div><div class="info-cell"><strong>${decked(code)}</strong><small>In decks</small></div><div class="info-cell"><strong>${loaned(code)}</strong><small>Loaned</small></div></div><div class="location-callout"><strong>Store in:</strong><br>${l.box?`Box ${l.box} • ${esc(l.domain)} ${esc(l.bucket)} • ${esc(l.section)}`:'Unassigned'}</div><div class="modal-actions"><button class="primary-btn" data-adjust="1" data-code="${esc(code)}">+1</button><button class="primary-btn" data-adjust="4" data-code="${esc(code)}">+4</button><button class="primary-btn" data-adjust="10" data-code="${esc(code)}">+10</button><button class="ghost-btn" data-adjust="-1" data-code="${esc(code)}">−1</button><button class="ghost-btn" data-card-loan="${esc(code)}">Loan</button></div></div></div></div>`;$('cardDialog').showModal()}
-function renderStorage(){let html='';DOMAINS.forEach((domain,i)=>['Units','Other'].forEach((bucket,j)=>{const box=i*2+j+1,cards=catalog.filter(c=>location(c).box===box&&avail(c.cardCode)>0),count=cards.reduce((s,c)=>s+avail(c.cardCode),0);html+=`<button class="storage-box" data-box="${box}"><div class="storage-top"><span class="storage-number">BOX ${String(box).padStart(2,'0')}</span><span class="storage-count">${count} cards</span></div><h3>${domain} ${bucket}</h3><p>${cards.length} unique cards</p></button>`}));$('storageGrid').innerHTML=html}
-function showBox(box){const cards=catalog.filter(c=>location(c).box===box&&avail(c.cardCode)>0).sort((a,b)=>location(a).section.localeCompare(location(b).section)||name(a).localeCompare(name(b)));$('storageDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Box ${box}</h2><button class="close-btn" data-close="storageDialog">×</button></div>${cards.length?`<div class="card-lines">${cards.map(c=>`<div class="card-line"><span>${esc(location(c).section)} • ${esc(name(c))}</span><strong>×${avail(c.cardCode)}</strong></div>`).join('')}</div>`:'<div class="empty-state">No cards here yet.</div>'}</div>`;$('storageDialog').showModal()}
-function renderDecks(){if(!state.decks.length){$('deckList').innerHTML='<div class="empty-state">No decks yet.</div>';return}$('deckList').innerHTML=state.decks.map(d=>{const e=Object.entries(d.cards||{}).filter(([,q])=>q>0),t=e.reduce((s,[,q])=>s+Number(q),0);return`<div class="list-card"><div class="list-card-head"><div><h3>${esc(d.name)}</h3><p>${t} cards • ${e.length} unique</p></div><div><button class="mini-btn" data-edit-deck="${d.id}">Edit</button> <button class="danger-btn" data-delete-deck="${d.id}">Delete</button></div></div></div>`}).join('')}
-function openDeck(deck={id:uid('deck'),name:'',cards:{},_new:true}){$('deckDialog')._draft=JSON.parse(JSON.stringify(deck));$('deckDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>${deck._new?'New Deck':'Edit Deck'}</h2><button class="close-btn" data-close="deckDialog">×</button></div><div class="form-grid"><label>Deck name<input id="deckNameField" value="${esc(deck.name)}"></label><label>Add a card<input id="deckSearch" placeholder="Search card"></label></div><div id="deckResults" class="bulk-results"></div><div id="deckCurrent" class="card-lines"></div><div class="footer-row"><button id="saveDeckBtn" class="primary-btn">Save Deck</button></div></div>`;$('deckDialog').showModal();renderDeckCurrent()}
-function renderDeckSearch(t){const d=$('deckDialog')._draft,m=catalog.filter(c=>norm(name(c)).includes(norm(t))).slice(0,12);$('deckResults').innerHTML=m.map(c=>`<button class="bulk-row" style="width:100%;color:inherit;text-align:left" data-deck-add="${esc(c.cardCode)}"><div>${c.imageUrl?`<img src="${esc(c.imageUrl)}">`:''}</div><div><strong>${esc(name(c))}</strong><br><small>${avail(c.cardCode)} available</small></div><strong>+</strong></button>`).join('')}
-function renderDeckCurrent(){const d=$('deckDialog')._draft,e=Object.entries(d.cards||{}).filter(([,q])=>q>0);$('deckCurrent').innerHTML=e.length?e.map(([c,q])=>`<div class="card-line"><span>${esc(name(byCode.get(c)||{cardCode:c}))}</span><span><button class="mini-btn" data-deck-minus="${c}">−</button> <strong>×${q}</strong> <button class="mini-btn" data-deck-plus="${c}">+</button></span></div>`).join(''):'<div class="empty-state">No cards added.</div>'}
-function renderLoans(){const a=state.loans.filter(l=>!l.returnedAt);if(!a.length){$('loanList').innerHTML='<div class="empty-state">Nothing is currently loaned out.</div>';return}const g={};a.forEach(l=>(g[l.borrower]??=[]).push(l));$('loanList').innerHTML=Object.entries(g).map(([p,ls])=>`<div class="list-card"><div class="list-card-head"><div><h3>${esc(p)}</h3><p>${ls.reduce((s,l)=>s+Number(l.qty),0)} cards borrowed</p></div><button class="mini-btn" data-return-all="${esc(p)}">Return All</button></div><div class="card-lines">${ls.map(l=>`<div class="card-line"><span>${esc(name(byCode.get(l.cardCode)||{cardCode:l.cardCode}))}</span><span>×${l.qty} <button class="mini-btn" data-return-loan="${l.id}">Return</button></span></div>`).join('')}</div></div>`).join('')}
-function openLoan(code=''){const c=byCode.get(code);$('loanDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Loan Cards</h2><button class="close-btn" data-close="loanDialog">×</button></div><div class="form-grid"><label>Borrower<input id="loanBorrower"></label><label>Card<input id="loanSearch" value="${esc(c?name(c):'')}"></label><input id="loanCode" type="hidden" value="${esc(code)}"><div id="loanResults" class="bulk-results"></div><label>Quantity<input id="loanQty" type="number" min="1" value="1"></label></div><div class="footer-row"><button id="saveLoanBtn" class="primary-btn">Record Loan</button></div></div>`;$('loanDialog').showModal()}
-function renderLoanSearch(t){const m=catalog.filter(c=>norm(name(c)).includes(norm(t))&&avail(c.cardCode)>0).slice(0,10);$('loanResults').innerHTML=m.map(c=>`<button class="bulk-row" style="width:100%;color:inherit;text-align:left" data-loan-select="${c.cardCode}"><div>${c.imageUrl?`<img src="${esc(c.imageUrl)}">`:''}</div><div><strong>${esc(name(c))}</strong><br><small>${avail(c.cardCode)} available</small></div><strong>Choose</strong></button>`).join('')}
-function openBulk(){$('bulkDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Bulk Add</h2><button class="close-btn" data-close="bulkDialog">×</button></div><div class="form-grid" style="grid-template-columns:1fr 1fr"><label>Domain<select id="bulkDomain"><option>All</option>${DOMAINS.map(d=>`<option>${d}</option>`).join('')}</select></label><label>Type<select id="bulkType">${TYPES.map(t=>`<option>${t}</option>`).join('')}</select></label></div><div class="search-wrap" style="margin-top:12px"><input id="bulkSearch" placeholder="Search within sorted stack"></div><div id="bulkResults" class="bulk-results"></div></div>`;$('bulkDialog').showModal();renderBulk()}
-function renderBulk(){if(!$('bulkResults'))return;const d=$('bulkDomain').value,t=$('bulkType').value,s=norm($('bulkSearch').value),m=catalog.filter(c=>(d==='All'||(c.domains||[c.domain]).includes(d))&&(t==='All'||norm(c.cardType)===norm(t)||(c.cardTypeLabels||[]).map(norm).includes(norm(t)))&&(!s||norm(name(c)).includes(s))).slice(0,80);$('bulkResults').innerHTML=m.map(c=>`<div class="bulk-row"><div>${c.imageUrl?`<img src="${esc(c.imageUrl)}">`:''}</div><div><strong>${esc(name(c))}</strong><br><small>Owned ${owned(c.cardCode)} • Box ${location(c).box||'?'}</small></div><div class="bulk-buttons"><button data-bulk="1" data-code="${c.cardCode}">+1</button><button data-bulk="4" data-code="${c.cardCode}">+4</button><button data-bulk="10" data-code="${c.cardCode}">+10</button></div></div>`).join('')}
-function exportBackup(){const b=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),state},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`riftbound-vault-backup-${new Date().toISOString().slice(0,10)}.json`;a.click()}
-function switchTab(t){qsa('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));qsa('.view').forEach(v=>v.classList.remove('active'));$(`${t}View`).classList.add('active')}
-document.addEventListener('click',e=>{let x;if(x=e.target.closest('.tab'))return switchTab(x.dataset.tab);if(x=e.target.closest('.filter-chip')){filters[x.dataset.kind]=x.dataset.value;visibleCount=PAGE_SIZE;renderFilters();return renderCards()}if(x=e.target.closest('[data-card]'))return showCard(x.dataset.card);if(x=e.target.closest('[data-close]'))return $(x.dataset.close).close();if(x=e.target.closest('[data-adjust]')){adjust(x.dataset.code,Number(x.dataset.adjust));return showCard(x.dataset.code)}if(x=e.target.closest('[data-card-loan]')){$('cardDialog').close();return openLoan(x.dataset.cardLoan)}if(x=e.target.closest('[data-box]'))return showBox(Number(x.dataset.box));if(x=e.target.closest('[data-bulk]')){adjust(x.dataset.code,Number(x.dataset.bulk),'Bulk entry');return renderBulk()}if(x=e.target.closest('[data-edit-deck]'))return openDeck(state.decks.find(d=>d.id===x.dataset.editDeck));if(x=e.target.closest('[data-delete-deck]')){state.decks=state.decks.filter(d=>d.id!==x.dataset.deleteDeck);save();return renderAll()}if(x=e.target.closest('[data-deck-add]')){const d=$('deckDialog')._draft;d.cards[x.dataset.deckAdd]=Number(d.cards[x.dataset.deckAdd]||0)+1;return renderDeckCurrent()}if(x=e.target.closest('[data-deck-plus]')){const d=$('deckDialog')._draft;d.cards[x.dataset.deckPlus]=Number(d.cards[x.dataset.deckPlus]||0)+1;return renderDeckCurrent()}if(x=e.target.closest('[data-deck-minus]')){const d=$('deckDialog')._draft,c=x.dataset.deckMinus;d.cards[c]=Math.max(0,Number(d.cards[c]||0)-1);return renderDeckCurrent()}if(x=e.target.closest('[data-loan-select]')){const c=byCode.get(x.dataset.loanSelect);$('loanCode').value=c.cardCode;$('loanSearch').value=name(c);return $('loanResults').innerHTML=''}if(x=e.target.closest('[data-return-loan]')){const l=state.loans.find(a=>a.id===x.dataset.returnLoan);if(l)l.returnedAt=new Date().toISOString();save();return renderAll()}if(x=e.target.closest('[data-return-all]')){state.loans.filter(l=>!l.returnedAt&&l.borrower===x.dataset.returnAll).forEach(l=>l.returnedAt=new Date().toISOString());save();return renderAll()}if(e.target.id==='saveDeckBtn'){const d=$('deckDialog')._draft;d.name=$('deckNameField').value.trim()||'Untitled Deck';delete d._new;const i=state.decks.findIndex(x=>x.id===d.id);if(i>=0)state.decks[i]=d;else state.decks.push(d);save();$('deckDialog').close();return renderAll()}if(e.target.id==='saveLoanBtn'){const borrower=$('loanBorrower').value.trim(),code=$('loanCode').value,qty=Math.max(1,Number($('loanQty').value||1));if(!borrower||!code||qty>avail(code))return alert('Check borrower, card, and available quantity.');state.loans.push({id:uid('loan'),borrower,cardCode:code,qty,borrowedAt:new Date().toISOString(),returnedAt:null});save();$('loanDialog').close();return renderAll()}});
-document.addEventListener('input',e=>{if(e.target.id==='cardSearch'){filters.search=e.target.value;visibleCount=PAGE_SIZE;renderCards()}if(e.target.id==='deckSearch')renderDeckSearch(e.target.value);if(e.target.id==='loanSearch')renderLoanSearch(e.target.value);if(e.target.id==='bulkSearch')renderBulk()});document.addEventListener('change',e=>{if(e.target.id==='ownedOnly'){filters.ownedOnly=e.target.checked;renderCards()}if(e.target.id==='bulkDomain'||e.target.id==='bulkType')renderBulk()});$('bulkAddBtn').onclick=openBulk;$('newDeckBtn').onclick=()=>openDeck();$('newLoanBtn').onclick=()=>openLoan();$('loadMoreBtn').onclick=()=>{visibleCount+=PAGE_SIZE;renderCards()};$('exportBtn').onclick=exportBackup;if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});loadCatalog();renderAll();
+
+const STORAGE_KEY = 'riftbound-vault-v2';
+const PAGE_SIZE = 120;
+const DOMAINS = ['Fury','Calm','Mind','Body','Chaos','Order'];
+const TYPES = ['All','Legend','Unit','Rune','Spell','Gear','Battlefield','Token'];
+let catalog = [];
+let byCode = new Map();
+let visibleCount = PAGE_SIZE;
+let filters = {search:'',type:'All',domain:'All',set:'All',ownedOnly:false};
+let state = loadState();
+
+const $ = id => document.getElementById(id);
+const qsa = (s,r=document) => [...r.querySelectorAll(s)];
+
+function loadState(){
+  try { return {inventory:{},decks:[],loans:[],transactions:[],...JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}; }
+  catch { return {inventory:{},decks:[],loans:[],transactions:[]}; }
+}
+function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); renderStats(); }
+function esc(v=''){ return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+function norm(v=''){ return String(v).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,''); }
+function nameOf(c){ return c?.fullName || c?.name || c?.cardCode || 'Unknown card'; }
+function owned(code){ return Number(state.inventory[code]?.owned||0); }
+function decked(code){ return state.decks.reduce((s,d)=>s+Number(d.cards?.[code]||0),0); }
+function loaned(code){ return state.loans.filter(l=>!l.returnedAt&&l.cardCode===code).reduce((s,l)=>s+Number(l.qty||0),0); }
+function available(code){ return Math.max(0,owned(code)-decked(code)-loaned(code)); }
+function uid(prefix='id'){ return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`; }
+
+function adjustOwned(code,delta,reason='Manual adjustment'){
+  const current=owned(code), minimum=decked(code)+loaned(code), next=Math.max(minimum,current+Number(delta||0));
+  if(next===current) return;
+  state.inventory[code]={...(state.inventory[code]||{}),owned:next};
+  state.transactions.unshift({id:uid('txn'),cardCode:code,delta:next-current,reason,at:new Date().toISOString()});
+  saveState(); renderAll();
+}
+
+function locationFor(card){
+  const domain=DOMAINS.find(d=>(card.domains||[]).includes(d)) || (DOMAINS.includes(card.domain)?card.domain:'Unassigned');
+  const i=DOMAINS.indexOf(domain);
+  if(i<0) return {box:null,domain,bucket:'Unassigned',section:card.cardType||'Other'};
+  const labels=(card.cardTypeLabels||[]).map(norm);
+  const isChampion=labels.includes('champion');
+  const isUnit=norm(card.cardType)==='unit'&&!isChampion;
+  const box=i*2+(isUnit?1:2);
+  const section=isUnit?`Energy ${Number(card.energy)>=6?'6+':(card.energy??'?')}`:(isChampion?'Champions':(card.cardType||'Other'));
+  return {box,domain,bucket:isUnit?'Units':'Other',section};
+}
+
+async function loadCatalog(){
+  try{
+    $('catalogStatus').textContent='Loading Riftbound catalog...';
+    const r=await fetch('./data/cards.json',{cache:'no-store'});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data=await r.json();
+    catalog=Array.isArray(data)?data:(data.cards||[]);
+    if(catalog.length<100) throw new Error(`Only ${catalog.length} cards found`);
+    catalog=catalog.map((c,i)=>({...c,cardCode:String(c.cardCode||c.code||c.id||`card-${i}`),fullName:c.fullName||c.name||c.cardCode||`Card ${i}`,cardSet:c.cardSet||c.setName||c.setCode||'Unknown',cardNumber:c.cardNumber||c.collectorNumber||'',cardType:c.cardType||c.type||'Unknown',domains:Array.isArray(c.domains)?c.domains:(c.domain?[c.domain]:[]),domain:c.domain||(Array.isArray(c.domains)?c.domains[0]:'Unassigned'),imageUrl:c.imageUrl||c.image_url||''}));
+    byCode=new Map(catalog.map(c=>[c.cardCode,c]));
+    $('catalogStatus').textContent=`${catalog.length.toLocaleString()} cards loaded`;
+    renderAll();
+  }catch(err){
+    console.error(err);
+    $('catalogStatus').textContent=`Catalog error: ${err.message}`;
+    $('cardGrid').innerHTML='<div class="empty-state">The card catalog failed to load. The page itself is working, but the data request failed.</div>';
+  }
+}
+
+function chip(v,active,kind){ return `<button class="filter-chip ${active?'active':''}" data-kind="${kind}" data-value="${esc(v)}">${esc(v)}</button>`; }
+function renderFilters(){
+  $('typeFilters').innerHTML=TYPES.map(v=>chip(v,filters.type===v,'type')).join('');
+  $('domainFilters').innerHTML=['All',...DOMAINS].map(v=>chip(v,filters.domain===v,'domain')).join('');
+  const sets=[...new Set(catalog.map(c=>c.cardSet).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  $('setFilters').innerHTML=['All',...sets].map(v=>chip(v,filters.set===v,'set')).join('');
+}
+function filteredCards(){
+  const search=norm(filters.search);
+  return catalog.filter(c=>{
+    if(filters.ownedOnly&&owned(c.cardCode)<=0) return false;
+    if(filters.type!=='All'&&norm(c.cardType)!==norm(filters.type)&&!(c.cardTypeLabels||[]).map(norm).includes(norm(filters.type))) return false;
+    if(filters.domain!=='All'&&c.domain!==filters.domain&&!(c.domains||[]).includes(filters.domain)) return false;
+    if(filters.set!=='All'&&c.cardSet!==filters.set) return false;
+    if(search&&!norm([nameOf(c),c.cardSet,c.cardNumber,c.cardCode,c.cardType].join(' ')).includes(search)) return false;
+    return true;
+  });
+}
+function cardTile(c){
+  const q=owned(c.cardCode);
+  return `<button class="card-tile" data-card="${esc(c.cardCode)}"><div class="card-image-wrap">${c.imageUrl?`<img class="card-image" loading="lazy" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:`<div class="card-placeholder">${esc(nameOf(c))}</div>`}</div>${q?`<span class="qty-badge">×${q}</span>`:''}<div class="card-caption"><strong>${esc(nameOf(c))}</strong><small>${esc(c.cardSet)} ${esc(c.cardNumber)}</small></div></button>`;
+}
+function renderCards(){
+  const cards=filteredCards(), shown=cards.slice(0,visibleCount);
+  $('cardGrid').innerHTML=shown.length?shown.map(cardTile).join(''):'<div class="empty-state">No cards match these filters.</div>';
+  $('loadMoreBtn').hidden=cards.length<=visibleCount;
+}
+function renderStats(){
+  const codes=Object.keys(state.inventory);
+  const total=codes.reduce((s,c)=>s+owned(c),0);
+  const unique=codes.filter(c=>owned(c)>0).length;
+  const d=state.decks.reduce((s,x)=>s+Object.values(x.cards||{}).reduce((a,b)=>a+Number(b||0),0),0);
+  const l=state.loans.filter(x=>!x.returnedAt).reduce((s,x)=>s+Number(x.qty||0),0);
+  $('statOwned').textContent=total; $('statUnique').textContent=unique; $('statDecks').textContent=d; $('statLoans').textContent=l; $('statAvailable').textContent=Math.max(0,total-d-l);
+}
+function renderStorage(){
+  let html='';
+  DOMAINS.forEach((domain,i)=>['Units','Other'].forEach((bucket,j)=>{
+    const box=i*2+j+1;
+    const cards=catalog.filter(c=>locationFor(c).box===box&&available(c.cardCode)>0);
+    const count=cards.reduce((s,c)=>s+available(c.cardCode),0);
+    html+=`<button class="storage-box" data-box="${box}"><div class="storage-top"><span class="storage-number">BOX ${String(box).padStart(2,'0')}</span><span class="storage-count">${count} cards</span></div><h3>${domain} ${bucket}</h3><p>${cards.length} unique cards</p></button>`;
+  }));
+  $('storageGrid').innerHTML=html;
+}
+function renderDecks(){ $('deckList').innerHTML=state.decks.length?state.decks.map(d=>`<div class="list-card"><h3>${esc(d.name)}</h3></div>`).join(''):'<div class="empty-state">No decks yet.</div>'; }
+function renderLoans(){ $('loanList').innerHTML=state.loans.filter(l=>!l.returnedAt).length?state.loans.filter(l=>!l.returnedAt).map(l=>`<div class="list-card"><h3>${esc(l.borrower)}</h3><p>${esc(nameOf(byCode.get(l.cardCode)||{cardCode:l.cardCode}))} ×${l.qty}</p></div>`).join(''):'<div class="empty-state">Nothing is currently loaned out.</div>'; }
+function renderAll(){ renderFilters(); renderCards(); renderStats(); renderStorage(); renderDecks(); renderLoans(); }
+
+function showCard(code){
+  const c=byCode.get(code); if(!c) return;
+  const loc=locationFor(c);
+  $('cardDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>${esc(nameOf(c))}</h2><button class="close-btn" data-close="cardDialog">×</button></div><div class="detail-layout"><div>${c.imageUrl?`<img class="detail-image" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:'<div class="detail-image card-placeholder">No image</div>'}</div><div><div class="detail-meta">${esc(c.cardSet)} • ${esc(c.cardType)} • ${esc((c.domains||[]).join(' / '))}</div><div class="info-grid"><div class="info-cell"><strong>${owned(code)}</strong><small>Total owned</small></div><div class="info-cell"><strong>${available(code)}</strong><small>Available</small></div><div class="info-cell"><strong>${decked(code)}</strong><small>In decks</small></div><div class="info-cell"><strong>${loaned(code)}</strong><small>Loaned</small></div></div><div class="location-callout"><strong>Store in:</strong><br>${loc.box?`Box ${loc.box} • ${esc(loc.domain)} ${esc(loc.bucket)} • ${esc(loc.section)}`:'Unassigned'}</div><div class="modal-actions"><button class="primary-btn" data-adjust="1" data-code="${esc(code)}">+1</button><button class="primary-btn" data-adjust="4" data-code="${esc(code)}">+4</button><button class="primary-btn" data-adjust="10" data-code="${esc(code)}">+10</button><button class="ghost-btn" data-adjust="-1" data-code="${esc(code)}">−1</button></div></div></div></div>`;
+  $('cardDialog').showModal();
+}
+function showBox(box){
+  const cards=catalog.filter(c=>locationFor(c).box===box&&available(c.cardCode)>0);
+  $('storageDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Box ${box}</h2><button class="close-btn" data-close="storageDialog">×</button></div>${cards.length?`<div class="card-lines">${cards.map(c=>`<div class="card-line"><span>${esc(locationFor(c).section)} • ${esc(nameOf(c))}</span><strong>×${available(c.cardCode)}</strong></div>`).join('')}</div>`:'<div class="empty-state">No cards here yet.</div>'}</div>`;
+  $('storageDialog').showModal();
+}
+function openBulk(){
+  $('bulkDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Bulk Add</h2><button class="close-btn" data-close="bulkDialog">×</button></div><div class="search-wrap"><input id="bulkSearch" placeholder="Search card"></div><div id="bulkResults" class="bulk-results"></div></div>`;
+  $('bulkDialog').showModal(); renderBulk('');
+}
+function renderBulk(text){
+  if(!$('bulkResults')) return;
+  const matches=catalog.filter(c=>norm(nameOf(c)).includes(norm(text))).slice(0,60);
+  $('bulkResults').innerHTML=matches.map(c=>`<div class="bulk-row"><div>${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}</div><div><strong>${esc(nameOf(c))}</strong><br><small>Owned ${owned(c.cardCode)}</small></div><div class="bulk-buttons"><button data-bulk="1" data-code="${esc(c.cardCode)}">+1</button><button data-bulk="4" data-code="${esc(c.cardCode)}">+4</button><button data-bulk="10" data-code="${esc(c.cardCode)}">+10</button></div></div>`).join('');
+}
+function switchTab(tab){ qsa('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); qsa('.view').forEach(v=>v.classList.remove('active')); $(`${tab}View`)?.classList.add('active'); }
+function exportBackup(){ const b=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),state},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`riftbound-vault-backup-${new Date().toISOString().slice(0,10)}.json`; a.click(); }
+
+function wireEvents(){
+  document.addEventListener('click',e=>{
+    let x;
+    if(x=e.target.closest('.tab')) return switchTab(x.dataset.tab);
+    if(x=e.target.closest('.filter-chip')){ filters[x.dataset.kind]=x.dataset.value; visibleCount=PAGE_SIZE; renderFilters(); return renderCards(); }
+    if(x=e.target.closest('[data-card]')) return showCard(x.dataset.card);
+    if(x=e.target.closest('[data-close]')) return $(x.dataset.close)?.close();
+    if(x=e.target.closest('[data-adjust]')){ const code=x.dataset.code; adjustOwned(code,Number(x.dataset.adjust)); return showCard(code); }
+    if(x=e.target.closest('[data-box]')) return showBox(Number(x.dataset.box));
+    if(x=e.target.closest('[data-bulk]')){ adjustOwned(x.dataset.code,Number(x.dataset.bulk),'Bulk entry'); return renderBulk($('bulkSearch')?.value||''); }
+  });
+  $('cardSearch').addEventListener('input',e=>{ filters.search=e.target.value; visibleCount=PAGE_SIZE; renderCards(); });
+  $('ownedOnly').addEventListener('change',e=>{ filters.ownedOnly=e.target.checked; renderCards(); });
+  $('bulkAddBtn').addEventListener('click',openBulk);
+  $('newDeckBtn').addEventListener('click',()=>alert('Deck editor is the next build step after the gallery is stable.'));
+  $('newLoanBtn').addEventListener('click',()=>alert('Loan tracking is the next build step after the gallery is stable.'));
+  $('loadMoreBtn').addEventListener('click',()=>{ visibleCount+=PAGE_SIZE; renderCards(); });
+  $('exportBtn').addEventListener('click',exportBackup);
+  document.addEventListener('input',e=>{ if(e.target.id==='bulkSearch') renderBulk(e.target.value); });
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  try{
+    wireEvents();
+    renderFilters(); renderStats(); renderStorage(); renderDecks(); renderLoans();
+    loadCatalog();
+  }catch(err){
+    console.error(err);
+    $('catalogStatus').textContent=`App error: ${err.message}`;
+  }
+});

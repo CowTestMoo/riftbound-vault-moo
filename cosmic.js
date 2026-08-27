@@ -34,17 +34,7 @@
 
   function makeStar(){
     const depth = Math.pow(Math.random(),1.7);
-    return {
-      x:Math.random(),
-      y:Math.random(),
-      depth,
-      radius:random(.4,1.75)+depth,
-      alpha:random(.24,.96),
-      phase:random(0,Math.PI*2),
-      twinkle:random(.001, .0052),
-      drift:random(.000004,.000022),
-      tint:Math.random()
-    };
+    return {x:Math.random(),y:Math.random(),depth,radius:random(.4,1.75)+depth,alpha:random(.24,.96),phase:random(0,Math.PI*2),twinkle:random(.001,.0052),drift:random(.000004,.000022),tint:Math.random()};
   }
 
   function rebuildStars(){
@@ -67,10 +57,7 @@
 
   function sceneDrift(time, scale=1){
     if(reducedMotion.matches) return [0,0];
-    return [
-      Math.sin(time*.00009)*16*scale + Math.cos(time*.000037)*8*scale,
-      Math.cos(time*.000073)*12*scale + Math.sin(time*.000041)*7*scale
-    ];
+    return [Math.sin(time*.00009)*16*scale + Math.cos(time*.000037)*8*scale,Math.cos(time*.000073)*12*scale + Math.sin(time*.000041)*7*scale];
   }
 
   function drawNebula(time){
@@ -139,7 +126,7 @@
     const [driftX,driftY]=sceneDrift(time,.45);
     for(const c of constellations){
       const angle=reducedMotion.matches?0:Math.sin(time*c.speed+c.phase)*.052;
-      const pulse=reducedMotion.matches?.52:.43+.18*Math.sin(time*.001+c.phase);
+      const pulse=reducedMotion.matches ? .52 : .43+.18*Math.sin(time*.001+c.phase);
       const localX=reducedMotion.matches?0:Math.sin(time*.00012+c.phase)*10;
       const localY=reducedMotion.matches?0:Math.cos(time*.00010+c.phase)*7;
       const pts=c.points.map(([x,y])=>{
@@ -177,15 +164,7 @@
   function spawnShooter(){
     const direction=Math.random()<.84?-1:1;
     const startX=direction<0?random(width*.45,width*1.08):random(-width*.08,width*.3);
-    shooters.push({
-      x:startX,
-      y:random(-height*.04,height*.48),
-      vx:direction<0?random(-.92,-.55):random(.5,.78),
-      vy:random(.30,.62),
-      life:1,
-      length:random(110,220),
-      width:random(.9,1.9)
-    });
+    shooters.push({x:startX,y:random(-height*.04,height*.48),vx:direction<0?random(-.92,-.55):random(.5,.78),vy:random(.30,.62),life:1,length:random(110,220),width:random(.9,1.9)});
   }
 
   function spawnShooterBurst(){

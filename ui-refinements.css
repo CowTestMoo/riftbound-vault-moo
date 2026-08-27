@@ -16,10 +16,7 @@
 }
 
 /* Top-of-section actions should feel like controls, not giant gold CTAs. */
-#newDeckBtn,
-#newLoanBtn,
-#bulkAddBtn,
-#customizeStorageBtn{
+#newDeckBtn,#newLoanBtn,#bulkAddBtn,#customizeStorageBtn{
   color:#dff8ff!important;
   background:linear-gradient(180deg,rgba(18,36,62,.90),rgba(9,19,36,.94))!important;
   border:1px solid rgba(124,230,255,.25)!important;
@@ -31,10 +28,7 @@
   font-weight:800!important;
   letter-spacing:.01em;
 }
-#newDeckBtn:hover,
-#newLoanBtn:hover,
-#bulkAddBtn:hover,
-#customizeStorageBtn:hover{
+#newDeckBtn:hover,#newLoanBtn:hover,#bulkAddBtn:hover,#customizeStorageBtn:hover{
   color:#fff!important;
   border-color:rgba(124,230,255,.48)!important;
   background:linear-gradient(180deg,rgba(28,56,88,.96),rgba(12,28,52,.98))!important;
@@ -42,34 +36,22 @@
 }
 
 /* Cosmic Settings + Browse Libraries live as one quiet utility stack. */
-.cosmic-utility-stack{
-  margin-left:auto;
-  display:grid;
-  gap:6px;
-  width:max-content;
-  min-width:142px;
-}
+.cosmic-utility-stack{margin-left:auto;display:grid;gap:6px;width:max-content;min-width:142px}
 .cosmic-utility-stack #uxSettingsBtn,
-.cosmic-utility-stack #browseLibrariesBtn{
-  margin-left:0!important;
-  width:100%;
-  justify-content:center;
-  min-height:34px;
-  padding:7px 11px!important;
-  border-radius:10px!important;
-  font-size:.74rem!important;
-  font-weight:800!important;
-  background:linear-gradient(180deg,rgba(14,22,42,.94),rgba(8,14,29,.96))!important;
-  color:#d9e7ff!important;
-  border:1px solid rgba(121,160,255,.18)!important;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.018)!important;
+.cosmic-utility-stack #browseLibrariesUtilityBtn{
+  margin-left:0!important;width:100%;justify-content:center;min-height:34px;padding:7px 11px!important;border-radius:10px!important;font-size:.74rem!important;font-weight:800!important;background:linear-gradient(180deg,rgba(14,22,42,.94),rgba(8,14,29,.96))!important;color:#d9e7ff!important;border:1px solid rgba(121,160,255,.18)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.018)!important
 }
 .cosmic-utility-stack #uxSettingsBtn:hover,
-.cosmic-utility-stack #browseLibrariesBtn:hover{
-  border-color:rgba(124,230,255,.36)!important;
-  color:#f5fcff!important;
-  background:linear-gradient(180deg,rgba(20,35,61,.98),rgba(10,20,39,.98))!important;
-}
+.cosmic-utility-stack #browseLibrariesUtilityBtn:hover{border-color:rgba(124,230,255,.36)!important;color:#f5fcff!important;background:linear-gradient(180deg,rgba(20,35,61,.98),rgba(10,20,39,.98))!important}
+
+/* Remove the animated orbit decoration from the Riftbound Vault heading. */
+.title-orbits{display:none!important;animation:none!important}
+.vault-title-line::before,.vault-title-line::after{animation:none!important}
+
+/* Username is a display label only. New accounts must finish the username dialog first. */
+.username-chip{cursor:default!important;pointer-events:none!important;user-select:text}
+body.username-required .app-shell{filter:blur(2px);pointer-events:none;user-select:none}
+body.username-required #usernameSetupDialog{pointer-events:auto;filter:none}
 
 /* Cloud synchronization is automatic. There is no manual-sync control. */
 #cloudSyncBtn{display:none!important}

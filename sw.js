@@ -1,4 +1,4 @@
-const CACHE='riftbound-vault-shell-v10';
+const CACHE='riftbound-vault-shell-v11';
 const SHELL=['./','./index.html','./styles.css','./cosmic-effects.css','./polish.css','./cosmic-cleanup.css','./ux.css','./rune-sound.css','./cosmic.js','./polish.js','./ux.js','./rune-sound.js','./dashboard-toggles.js','./app.js','./manifest.json','./icon.svg'];
 
 self.addEventListener('install',event=>{

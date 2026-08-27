@@ -186,7 +186,7 @@
 
   function renderScanner(){
     const panel=document.getElementById('toolPanel');if(!panel||activeTool!=='scanner')return;
-    panel.innerHTML=`<div class="tool-head"><div><h3>Camera Assist</h3><p>Capture the card, then confirm it from the catalog. Automatic recognition is ready to plug into a vision provider when we add a server-side API key.</p></div><span class="status-pill">Beta</span></div><div class="scanner-grid"><div class="scanner-capture">${scanImageUrl?`<img src="${esc(scanImageUrl)}" alt="Captured card">`:'<div class="scanner-placeholder">✦<br>Card photo preview</div>'}<label class="primary-btn scanner-file-label">Take / Choose Photo<input id="scannerFile" type="file" accept="image/*" capture="environment" hidden></label></div><div><div class="feature-search"><input id="scannerSearch" type="search" placeholder="Search the captured card by name"></div><div id="scannerResults" class="feature-search-results"></div></div></div>`;
+    panel.innerHTML=`<div class="tool-head"><div><h3>Camera Assist</h3><p>Take a clear card photo for automatic recognition, or use manual catalog search below.</p></div><span class="status-pill">Beta</span></div><div class="scanner-grid"><div class="scanner-capture">${scanImageUrl?`<img src="${esc(scanImageUrl)}" alt="Captured card">`:'<div class="scanner-placeholder">✦<br>Card photo preview</div>'}<label class="primary-btn scanner-file-label">Take / Choose Photo<input id="scannerFile" type="file" accept="image/*" capture="environment" hidden></label></div><div><div class="feature-search"><input id="scannerSearch" type="search" placeholder="Search the captured card by name"></div><div id="scannerResults" class="feature-search-results"></div></div></div>`;
     renderScannerSearch('');
   }
   function renderScannerSearch(q){const root=document.getElementById('scannerResults');if(!root)return;const cards=searchCards(q,{limit:q?30:0});root.innerHTML=cards.map(c=>`<div class="feature-search-row">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}<span><strong>${esc(nameOf(c))}</strong><small>${esc(c.cardSet)} ${esc(c.cardNumber||'')}</small></span><button data-scan-add="${esc(c.cardCode)}">+1</button></div>`).join('')}
@@ -194,7 +194,7 @@
   function renderValues(){
     const panel=document.getElementById('toolPanel');if(!panel||activeTool!=='values')return;const s=readState(),ownedCards=catalog.filter(c=>owned(c.cardCode,s)>0);
     const total=ownedCards.reduce((n,c)=>n+owned(c.cardCode,s)*price(c.cardCode,s),0),valued=ownedCards.filter(c=>price(c.cardCode,s)>0).length;
-    panel.innerHTML=`<div class="tool-head"><div><h3>Collection Values</h3><p>Manual USD prices for now. Live TCGplayer/Cardmarket pricing can be connected securely through a server-side provider key.</p></div><div class="value-total"><small>Estimated value</small><strong>${money(total)}</strong></div></div><div class="value-summary">${valued}/${ownedCards.length} owned cards have a price</div><div class="feature-search"><input id="valueSearch" type="search" placeholder="Search owned cards"></div><div id="valueRows" class="value-rows"></div>`;
+    panel.innerHTML=`<div class="tool-head"><div><h3>Collection Values</h3><p>Daily market prices are synced automatically when available. You can still set a manual override.</p></div><div class="value-total"><small>Estimated value</small><strong>${money(total)}</strong></div></div><div class="value-summary">${valued}/${ownedCards.length} owned cards have a price</div><div class="feature-search"><input id="valueSearch" type="search" placeholder="Search owned cards"></div><div id="valueRows" class="value-rows"></div>`;
     renderValueRows('');
   }
   function renderValueRows(q){
@@ -206,6 +206,7 @@
   function renderTool(){
     document.querySelectorAll('.tool-subtabs [data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===activeTool));
     if(activeTool==='wishlist')renderWishlist();else if(activeTool==='trades')renderTrades();else if(activeTool==='activity')renderActivity();else if(activeTool==='scanner')renderScanner();else renderValues();
+    window.dispatchEvent(new CustomEvent('riftbound-tool-render',{detail:{tool:activeTool}}));
   }
   function renderFeatures(){ensureTools();ensureSettingsTools();renderDecks();renderLoans();renderTool()}
 
@@ -288,7 +289,12 @@
   async function init(){
     await ensureCatalog();ensureTools();ensureSettingsTools();renderFeatures();
     window.addEventListener('riftbound-cloud-restored',()=>{ensureCatalog().then(renderFeatures)});
-    window.addEventListener('riftbound-ui-render',e=>{const scopes=e.detail?.scopes||[];if(scopes.includes('decks')||scopes.includes('loans'))renderFeatures()});
+    window.addEventListener('riftbound-ui-render',e=>{
+      const scopes=e.detail?.scopes||[],dl=document.getElementById('deckList'),ll=document.getElementById('loanList');
+      const needsDeck=scopes.includes('decks')&&dl&&!dl.querySelector('[data-feature-deck-list]');
+      const needsLoan=scopes.includes('loans')&&ll&&!ll.querySelector('[data-feature-loan-list]');
+      if(needsDeck||needsLoan)renderFeatures();
+    });
   }
   window.RiftboundFeatures={render:renderFeatures,undo:undoLastInventory};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

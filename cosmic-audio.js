@@ -18,7 +18,7 @@
     let head=o;
     if(filter){const bi=c.createBiquadFilter();bi.type='lowpass';bi.frequency.value=filter;bi.Q.value=q;o.connect(bi);head=bi}
     head.connect(g);
-    const tail=p||master;if(p){g.connect(p);p.connect(master)}else g.connect(master);
+    if(p){g.connect(p);p.connect(master)}else g.connect(master);
     if(echo>0){const d=c.createDelay(.7),eg=c.createGain(),ep=panner(c,-pan*.65);d.delayTime.value=echo;eg.gain.value=.22;g.connect(d);d.connect(eg);if(ep){eg.connect(ep);ep.connect(master)}else eg.connect(master)}
     o.start(start);o.stop(start+dur+.03);
   }
@@ -60,28 +60,18 @@
   function transition(){
     if(!active())return;const now=performance.now();if(now<transitionLock)return;transitionLock=now+1250;
     const c=audio(),t=c.currentTime;
-
-    /* 0.00s: the vault drops away into deep space */
     tone({c,start:t,f:42,to:58,dur:.50,type:'sine',gain:.045,filter:220});
     tone({c,start:t+.015,f:84,to:116,dur:.46,type:'sine',gain:.018,pan:-.1,filter:380});
     noise({c,start:t,dur:.30,gain:.008,high:120,low:1200,pan:-.2,fadeIn:.06});
-
-    /* 0.08s: stars begin streaking across the field */
     sweepNoise({c,start:t+.07,dur:.46,gain:.014,from:420,to:7600,pan:-.45});
     sweepNoise({c,start:t+.12,dur:.42,gain:.011,from:650,to:9200,pan:.48});
     [523.25,783.99,1174.66,1567.98].forEach((f,i)=>tone({c,start:t+.10+i*.055,f:f*.78,to:f*1.34,dur:.22,type:'sine',gain:.0068/(1+i*.12),pan:-.45+i*.3,filter:4700,echo:.17}));
-
-    /* 0.34s: constellation rings open */
     [261.63,392,523.25,783.99].forEach((f,i)=>tone({c,start:t+.34+i*.045,f,to:f*1.055,dur:.28,type:i===0?'triangle':'sine',gain:.011/(1+i*.1),pan:(i-1.5)*.18,filter:3300,echo:.21}));
     noise({c,start:t+.38,dur:.18,gain:.006,high:1800,low:6800,pan:.18});
-
-    /* 0.61s: warp crest, matched to the portal's largest expansion */
     tone({c,start:t+.58,f:54,to:96,dur:.25,type:'sine',gain:.055,filter:300});
     sweepNoise({c,start:t+.55,dur:.25,gain:.020,from:900,to:9800,pan:0});
     tone({c,start:t+.62,f:1760,to:3520,dur:.16,type:'sine',gain:.008,pan:.32,filter:5600,echo:.12});
     tone({c,start:t+.65,f:1320,to:2640,dur:.15,type:'triangle',gain:.007,pan:-.34,filter:4800,echo:.12});
-
-    /* 0.80s: arriving in the other library, bright celestial confirmation */
     [392,587.33,783.99,1174.66,1567.98].forEach((f,i)=>tone({c,start:t+.78+i*.052,f,to:f*1.018,dur:.26,type:i===0?'triangle':'sine',gain:.013/(1+i*.14),pan:(i-2)*.14,filter:4200,echo:.22}));
     tone({c,start:t+.82,f:65,to:82,dur:.32,type:'sine',gain:.036,filter:260});
     noise({c,start:t+.86,dur:.14,gain:.0048,high:2800,low:9200});
@@ -122,5 +112,6 @@
   },true);
 
   window.addEventListener('riftbound-cosmic-shooter',starfield);
+  setInterval(()=>{if(active()&&!document.hidden&&Math.random()<.62)starfield()},13000);
   window.RiftboundCosmicAudio={play,transition,starfield,isEnabled:active};
 })();

@@ -29,8 +29,7 @@
     playTransitionAudio();
     transitionOverlay();
     setTimeout(()=>{
-      screen.hidden=true;
-      document.body.classList.remove('friend-library-open');
+      window.RiftboundSocial?.closeBrowser?.();
       const panel=document.getElementById('uxSettings');if(panel)panel.hidden=true;
     },390);
     setTimeout(()=>{transitionLock=false},1450);
@@ -51,12 +50,10 @@
 
   function polishProfileControls(){
     const back=document.getElementById('friendBackBtn');
-    const another=document.getElementById('friendBrowseAnother');
     if(back)back.textContent='← My Vault';
-    if(another)another.textContent='Switch Profile';
   }
 
-  document.addEventListener('click',e=>{if(e.target.closest('#friendBrowseAnother,#browseLibrariesUtilityBtn,#mobileFriendProfileBtn'))setTimeout(polishProfileControls,0)});
+  document.addEventListener('click',e=>{if(e.target.closest('#browseLibrariesUtilityBtn'))setTimeout(polishProfileControls,0)});
   window.addEventListener('riftbound-social-ready',()=>setTimeout(polishProfileControls,20));
   window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(polishProfileControls,80));
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(polishProfileControls,250),{once:true});

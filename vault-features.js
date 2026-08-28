@@ -66,7 +66,7 @@
     const s=readState(),decks=s.decks||[];
     root.innerHTML=`<div data-feature-deck-list>${decks.length?decks.map(d=>{
       const total=Object.values(d.cards||{}).reduce((a,b)=>a+Number(b||0),0);
-      return `<article class="list-card feature-list-card"><div><h3>${esc(d.name||'Untitled Deck')}</h3><p>${total} cards${d.champion?` • ${esc(d.champion)}`:''}</p></div><div class="feature-card-actions"><button class="ghost-btn" data-edit-deck="${esc(d.id)}">Edit</button><button class="danger-btn" data-delete-deck="${esc(d.id)}">Delete</button></div></article>`;
+      return `<article class="list-card feature-list-card"><div><button class="deck-name-button" type="button" data-view-deck="${esc(d.id)}">${esc(d.name||'Untitled Deck')}</button><p>${total} cards${d.champion?` • ${esc(d.champion)}`:''}</p></div><div class="feature-card-actions"><button class="ghost-btn" data-edit-deck="${esc(d.id)}">Edit</button><button class="danger-btn" data-delete-deck="${esc(d.id)}">Delete</button></div></article>`;
     }).join(''):'<div class="empty-state">No decks yet. Create one and the vault will reserve those copies automatically.</div>'}</div>`;
   }
 
@@ -239,6 +239,7 @@
   document.addEventListener('click',e=>{
     let x;
     if(x=e.target.closest('[data-tool]')){activeTool=x.dataset.tool;renderTool();return}
+    if(x=e.target.closest('[data-view-deck]')){const deck=readState().decks.find(item=>item.id===x.dataset.viewDeck);if(deck)window.RiftboundDeckViewer?.open?.({deck});return}
     if(x=e.target.closest('[data-edit-deck]')){openDeckEditor(x.dataset.editDeck);return}
     if(x=e.target.closest('[data-delete-deck]')){if(confirm('Delete this deck?')){const s=readState(),d=s.decks.find(d=>d.id===x.dataset.deleteDeck);s.decks=s.decks.filter(d=>d.id!==x.dataset.deleteDeck);logAction(s,`Deleted deck “${d?.name||'Deck'}”`);saveState(s)}return}
     if(x=e.target.closest('[data-deck-add]')){adjustDeckDraft(x.dataset.deckAdd,1);return}

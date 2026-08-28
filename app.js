@@ -1,6 +1,7 @@
 'use strict';
 
 const STORAGE_KEY = 'riftbound-vault-v2';
+const FILTER_STORAGE_KEY = 'riftbound-card-filters-v2';
 const PAGE_SIZE = 60;
 const DOMAINS = ['Fury','Calm','Mind','Body','Chaos','Order'];
 const TYPES = ['All','Legend','Unit','Rune','Spell','Gear','Battlefield','Token'];
@@ -8,7 +9,7 @@ let catalog = [];
 let byCode = new Map();
 let catalogSets = [];
 let visibleCount = PAGE_SIZE;
-let filters = {search:'',type:'All',domain:'All',set:'All',ownedOnly:false};
+let filters = loadFilters();
 let state = loadState();
 let renderSignalFrame=0;
 let cardSearchFrame=0;
@@ -50,6 +51,25 @@ function loadState(){
     return {inventory:{},decks:[],loans:[],transactions:[],...parsed,storageBoxes:normalizeStorageBoxes(parsed.storageBoxes)};
   }
   catch { return {inventory:{},decks:[],loans:[],transactions:[],storageBoxes:defaultStorageBoxes()}; }
+}
+function loadFilters(){
+  const fallback={search:'',types:[],domains:[],sets:[],ownedOnly:false};
+  try{
+    const saved=JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY)||'{}');
+    const list=value=>[...new Set(Array.isArray(value)?value.filter(v=>typeof v==='string'&&v&&v!=='All'):[])];
+    return {...fallback,search:String(saved.search||''),types:list(saved.types),domains:list(saved.domains),sets:list(saved.sets),ownedOnly:!!saved.ownedOnly};
+  }catch{return fallback}
+}
+function saveFilters(){
+  localStorage.setItem(FILTER_STORAGE_KEY,JSON.stringify(filters));
+  window.dispatchEvent(new CustomEvent('riftbound-filter-preferences-change',{detail:{...filters}}));
+}
+function pruneFilterPreferences(){
+  const before=JSON.stringify(filters);
+  filters.types=filters.types.filter(value=>TYPES.includes(value)&&value!=='All');
+  filters.domains=filters.domains.filter(value=>DOMAINS.includes(value));
+  filters.sets=filters.sets.filter(value=>catalogSets.includes(value));
+  if(JSON.stringify(filters)!==before)saveFilters();
 }
 function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); signalUi('state'); renderStats(); }
 function esc(v=''){ return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
@@ -181,6 +201,7 @@ async function loadCatalog(){
     });
     byCode=new Map(catalog.map(c=>[c.cardCode,c]));
     catalogSets=[...new Set(catalog.map(c=>c.cardSet).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    pruneFilterPreferences();
     $('catalogStatus').textContent=`${catalog.length.toLocaleString()} cards loaded`;
     renderAll();
     window.dispatchEvent(new CustomEvent('riftbound-catalog-ready',{detail:{catalog}}));
@@ -195,26 +216,29 @@ async function loadCatalog(){
 
 function chip(v,active,kind){ return `<button class="filter-chip ${active?'active':''}" data-kind="${kind}" data-value="${esc(v)}">${esc(v)}</button>`; }
 function renderFilters(){
-  $('typeFilters').innerHTML=TYPES.map(v=>chip(v,filters.type===v,'type')).join('');
-  $('domainFilters').innerHTML=['All',...DOMAINS].map(v=>chip(v,filters.domain===v,'domain')).join('');
-  $('setFilters').innerHTML=['All',...catalogSets].map(v=>chip(v,filters.set===v,'set')).join('');
+  $('typeFilters').innerHTML=TYPES.map(v=>chip(v,v==='All'?!filters.types.length:filters.types.includes(v),'type')).join('');
+  $('domainFilters').innerHTML=['All',...DOMAINS].map(v=>chip(v,v==='All'?!filters.domains.length:filters.domains.includes(v),'domain')).join('');
+  $('setFilters').innerHTML=['All',...catalogSets].map(v=>chip(v,v==='All'?!filters.sets.length:filters.sets.includes(v),'set')).join('');
   signalUi('filters');
 }
 function toggleFilter(kind,value){
   if(!['type','domain','set'].includes(kind))return;
-  filters[kind]=value!=='All'&&filters[kind]===value?'All':value;
+  const key=`${kind}s`;
+  if(value==='All')filters[key]=[];
+  else filters[key]=filters[key].includes(value)?filters[key].filter(v=>v!==value):[...filters[key],value];
   visibleCount=PAGE_SIZE;
+  saveFilters();
   renderFilters();
   renderCards();
 }
 function filteredCards(){
   const search=norm(filters.search);
-  const typeKey=norm(filters.type);
+  const typeKeys=filters.types.map(norm);
   return catalog.filter(c=>{
     if(filters.ownedOnly&&owned(c.cardCode)<=0) return false;
-    if(filters.type!=='All'&&c._typeKey!==typeKey&&!c._labelKeys.includes(typeKey)) return false;
-    if(filters.domain!=='All'&&c.domain!==filters.domain&&!(c.domains||[]).includes(filters.domain)) return false;
-    if(filters.set!=='All'&&c.cardSet!==filters.set) return false;
+    if(typeKeys.length&&!typeKeys.some(key=>c._typeKey===key||c._labelKeys.includes(key))) return false;
+    if(filters.domains.length&&!filters.domains.some(domain=>c.domain===domain||(c.domains||[]).includes(domain))) return false;
+    if(filters.sets.length&&!filters.sets.includes(c.cardSet)) return false;
     if(search&&!c._searchIndex.includes(search)) return false;
     return true;
   });
@@ -256,7 +280,7 @@ function renderStorage(){
   $('storageGrid').innerHTML=html||'<div class="empty-state">No storage boxes configured yet. Use Customize Storage to add one.</div>';
   signalUi('storage');
 }
-function renderDecks(){ $('deckList').innerHTML=state.decks.length?state.decks.map(d=>`<div class="list-card"><h3>${esc(d.name)}</h3></div>`).join(''):'<div class="empty-state">No decks yet.</div>'; signalUi('decks'); }
+function renderDecks(){ $('deckList').innerHTML=state.decks.length?state.decks.map(d=>`<div class="list-card"><button class="deck-name-button" type="button" data-view-deck="${esc(d.id)}">${esc(d.name)}</button></div>`).join(''):'<div class="empty-state">No decks yet.</div>'; signalUi('decks'); }
 function renderLoans(){ $('loanList').innerHTML=state.loans.filter(l=>!l.returnedAt).length?state.loans.filter(l=>!l.returnedAt).map(l=>`<div class="list-card"><h3>${esc(l.borrower)}</h3><p>${esc(nameOf(byCode.get(l.cardCode)||{cardCode:l.cardCode}))} ×${l.qty}</p></div>`).join(''):'<div class="empty-state">Nothing is currently loaned out.</div>'; signalUi('loans'); }
 function renderAll(){ renderFilters(); renderCards(); renderStats(); renderStorage(); renderDecks(); renderLoans(); }
 
@@ -300,11 +324,11 @@ function wireEvents(){
     if(x=e.target.closest('[data-bulk]')){ adjustOwned(x.dataset.code,Number(x.dataset.bulk),'Bulk entry'); return renderBulk($('bulkSearch')?.value||''); }
   });
   $('cardSearch').addEventListener('input',e=>{
-    filters.search=e.target.value;visibleCount=PAGE_SIZE;
+    filters.search=e.target.value;visibleCount=PAGE_SIZE;saveFilters();
     if(cardSearchFrame)return;
     cardSearchFrame=requestAnimationFrame(()=>{cardSearchFrame=0;renderCards()});
   });
-  $('ownedOnly').addEventListener('change',e=>{ filters.ownedOnly=e.target.checked; renderCards(); });
+  $('ownedOnly').addEventListener('change',e=>{ filters.ownedOnly=e.target.checked;saveFilters();renderCards(); });
   $('bulkAddBtn').addEventListener('click',openBulk);
   $('newDeckBtn').addEventListener('click',()=>alert('Deck editor is the next build step after the gallery is stable.'));
   $('newLoanBtn').addEventListener('click',()=>alert('Loan tracking is the next build step after the gallery is stable.'));
@@ -315,6 +339,8 @@ function wireEvents(){
 
 document.addEventListener('DOMContentLoaded',()=>{
   try{
+    $('cardSearch').value=filters.search;
+    $('ownedOnly').checked=filters.ownedOnly;
     wireEvents();
     renderFilters(); renderStats(); renderStorage(); renderDecks(); renderLoans();
     loadCatalog();

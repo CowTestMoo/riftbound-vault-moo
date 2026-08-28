@@ -1,5 +1,5 @@
 /* Mobile-first interaction layer. Nothing in normal page flow becomes sticky. */
-.mobile-sheet-layer,.mobile-filter-btn,.mobile-friend-profile-btn{display:none}
+.mobile-sheet-layer,.mobile-filter-btn{display:none}
 
 @media(max-width:700px){
   /* Keep the legacy Tools node for compatibility but render only the dedicated center launcher. */
@@ -75,13 +75,9 @@
   .mobile-card-location{margin-top:9px;border:1px solid rgba(255,225,159,.20);border-radius:12px;background:linear-gradient(180deg,rgba(255,225,159,.06),rgba(121,160,255,.04));padding:10px}.mobile-card-location small,.mobile-card-location strong{display:block}.mobile-card-location small{color:#a38f66;font-size:.54rem;font-weight:900;letter-spacing:.08em}.mobile-card-location strong{font-size:.7rem;color:#f3e1b9;margin-top:3px}
   .mobile-card-details{width:100%;margin-top:8px;border:0;background:transparent;color:#869dc1;padding:8px;font-size:.63rem;text-decoration:underline;text-underline-offset:3px}
 
-  /* Friend profile switching shortcut: one tap opens the existing searchable chooser. */
-  .mobile-friend-profile-btn{display:inline-flex;align-items:center;justify-content:center;margin-top:7px;max-width:100%;border:1px solid rgba(121,160,255,.19);border-radius:999px;background:rgba(8,15,30,.78);color:#c7d7ef;padding:7px 11px;font-size:.65rem;font-weight:800}
-  body[data-vault-theme="neon"] .mobile-friend-profile-btn{border-color:rgba(57,255,216,.23);background:rgba(5,21,25,.80);color:#a9ffee}
-
   /* Touch feedback and iPhone safe-area spacing. */
   .mobile-nav{padding-bottom:max(6px,env(safe-area-inset-bottom))!important}
-  .mobile-nav button:active,.mobile-filter-btn:active,.mobile-tool-action:active,.mobile-card-secondary-actions button:active,.mobile-friend-profile-btn:active{filter:brightness(1.14)}
+  .mobile-nav button:active,.mobile-filter-btn:active,.mobile-tool-action:active,.mobile-card-secondary-actions button:active{filter:brightness(1.14)}
   .mobile-nav button:not(.mobile-tools-center):active{transform:scale(.95)!important}
   @media(prefers-reduced-motion:reduce){.mobile-sheet{animation:none!important}.mobile-nav button,.mobile-filter-btn,.mobile-tool-action{transition:none!important}}
 }

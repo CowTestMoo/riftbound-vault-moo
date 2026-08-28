@@ -41,13 +41,12 @@ body[data-vault-theme="neon"] .friend-user-self>span{border-color:rgba(57,255,21
   .settings-head{position:sticky;top:-14px;z-index:2;margin:-14px -14px 10px;padding:14px 14px 8px;background:linear-gradient(180deg,rgba(11,19,39,.995),rgba(11,19,39,.94),rgba(11,19,39,0))}
   body[data-vault-theme="neon"] #uxSettings.settings-popover{background:linear-gradient(180deg,rgba(7,16,24,.995),rgba(5,7,17,.995))!important;border-color:rgba(57,255,216,.26)!important}
 
-  /* Friend browser keeps the clearer mobile profile switching controls. */
+  /* Friend browser keeps one clear return action plus optional compare tools. */
   .friend-header{grid-template-columns:1fr!important;gap:9px!important}
   .friend-header>div{order:1}
   .friend-header #friendBackBtn{order:2;width:100%}
-  .friend-header-actions{order:3;grid-column:auto!important;display:grid!important;grid-template-columns:1fr 1fr;gap:7px!important}
+  .friend-header-actions{order:3;grid-column:auto!important;display:grid!important;grid-template-columns:1fr;gap:7px!important}
   .friend-header-actions .ghost-btn{width:100%!important;min-width:0!important}
-  .friend-header #friendBrowseAnother{width:100%!important}
   .friend-header h1{font-size:clamp(1.35rem,7vw,2rem)!important}
 
   .route-toast{bottom:92px!important}

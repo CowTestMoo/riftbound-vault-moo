@@ -67,9 +67,9 @@
   }
 
   function classify(target){
-    if(target.closest('#friendBackBtn,#friendBrowseAnother'))return 'tab';
+    if(target.closest('#friendBackBtn'))return 'tab';
     if(target.closest('[data-friend-user]'))return null;
-    if(target.closest('#friendSettingsBtn,#uxSettingsBtn'))return 'settings';
+    if(target.closest('#uxSettingsBtn'))return 'settings';
     if(target.closest('[data-close],.settings-close'))return 'close';
     if(target.closest('[data-adjust]'))return Number(target.closest('[data-adjust]').dataset.adjust)>0?'add':'remove';
     if(target.closest('[data-bulk],[data-fast-bulk],#bulkAddBtn'))return 'add';

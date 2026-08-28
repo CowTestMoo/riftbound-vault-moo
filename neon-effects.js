@@ -36,7 +36,7 @@
     const tool=el.closest?.('[data-tool]')?.dataset.tool;if(tool)return labels[tool]||'SUBSYSTEM // OPEN';
     const tab=el.closest?.('[data-tab]')?.dataset.tab||el.closest?.('[data-mobile-tab]')?.dataset.mobileTab;if(tab)return labels[tab]||'NODE // LINKED';
     if(el.closest?.('#mobileToolsCenterBtn'))return labels.tools;
-    if(el.closest?.('#browseLibrariesUtilityBtn,#mobileFriendProfileBtn'))return labels.libraries;
+    if(el.closest?.('#browseLibrariesUtilityBtn'))return labels.libraries;
     if(el.closest?.('#uxSettingsBtn'))return labels.settings;
     if(el.closest?.('#scannerFile'))return labels.scanner;
     if(el.closest?.('[data-scan-add]'))return 'SCAN MATCH // COMMITTED';

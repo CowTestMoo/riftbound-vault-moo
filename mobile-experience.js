@@ -5,10 +5,8 @@
   const PREF_KEY='riftbound-mobile-ui-v1';
   const SCROLL_KEY='riftbound-mobile-scroll-v1';
   const APP_KEY='riftbound-vault-v2';
-  let restoring=false;
-
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const readPrefs=()=>{try{return {lastTab:'cards',lastTool:'scanner',search:'',type:'All',domain:'All',set:'All',ownedOnly:false,...JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}}catch{return {lastTab:'cards',lastTool:'scanner',search:'',type:'All',domain:'All',set:'All',ownedOnly:false}}};
+  const readPrefs=()=>{try{return {lastTab:'cards',lastTool:'scanner',...JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}}catch{return {lastTab:'cards',lastTool:'scanner'}}};
   const writePrefs=patch=>{const p={...readPrefs(),...patch};localStorage.setItem(PREF_KEY,JSON.stringify(p));return p};
   const currentTab=()=>document.querySelector('.tab.active')?.dataset.tab||'cards';
 
@@ -64,15 +62,12 @@
     restoreScroll('tools');
   }
 
-  function filterValue(kind){
+  function filterValues(kind){
     const row=document.getElementById(kind==='type'?'typeFilters':kind==='domain'?'domainFilters':'setFilters');
-    return row?.querySelector('.filter-chip.active')?.dataset.value||'All';
+    return [...(row?.querySelectorAll('.filter-chip.active')||[])].map(x=>x.dataset.value).filter(v=>v&&v!=='All');
   }
   function filterCount(){
-    let n=0;
-    if(filterValue('type')!=='All')n++;
-    if(filterValue('domain')!=='All')n++;
-    if(filterValue('set')!=='All')n++;
+    let n=filterValues('type').length+filterValues('domain').length+filterValues('set').length;
     if(document.getElementById('ownedOnly')?.checked)n++;
     return n;
   }
@@ -114,12 +109,6 @@
   }
 
   function saveFilters(){
-    if(restoring)return;
-    writePrefs({
-      search:document.getElementById('cardSearch')?.value||'',
-      type:filterValue('type'),domain:filterValue('domain'),set:filterValue('set'),
-      ownedOnly:!!document.getElementById('ownedOnly')?.checked
-    });
     ensureFilterButton();
   }
 
@@ -133,7 +122,6 @@
       const all=[...(row?.querySelectorAll('.filter-chip')||[])].find(x=>x.dataset.value==='All');
       if(all&&!all.classList.contains('active'))all.click();
     });
-    writePrefs({search:'',type:'All',domain:'All',set:'All',ownedOnly:false});
     setTimeout(()=>renderFilterSheet(),0);
   }
 
@@ -201,38 +189,12 @@
   function restorePrefs(){
     if(!mq.matches)return;
     const p=readPrefs();
-    restoring=true;
-    const search=document.getElementById('cardSearch');
-    if(search&&search.value!==p.search){search.value=p.search;search.dispatchEvent(new Event('input',{bubbles:true}))}
-    const owned=document.getElementById('ownedOnly');
-    if(owned&&owned.checked!==!!p.ownedOnly){owned.checked=!!p.ownedOnly;owned.dispatchEvent(new Event('change',{bubbles:true}))}
-    ['type','domain','set'].forEach(kind=>{
-      const wanted=p[kind]||'All';
-      const row=document.getElementById(kind==='type'?'typeFilters':kind==='domain'?'domainFilters':'setFilters');
-      const chip=[...(row?.querySelectorAll('.filter-chip')||[])].find(x=>x.dataset.value===wanted);
-      if(chip&&!chip.classList.contains('active'))chip.click();
-    });
-    restoring=false;
     ensureFilterButton();
 
     const wantedTab=['cards','storage','decks','loans','tools'].includes(p.lastTab)?p.lastTab:'cards';
     document.querySelector(`.tab[data-tab="${wantedTab}"]`)?.click();
     if(wantedTab==='tools'&&p.lastTool)setTimeout(()=>document.querySelector(`.tool-subtabs [data-tool="${CSS.escape(p.lastTool)}"]`)?.click(),0);
     restoreScroll(wantedTab);
-  }
-
-  function ensureFriendProfileShortcut(){
-    if(!mq.matches)return;
-    const header=document.querySelector('#friendLibraryScreen .friend-header');
-    const name=document.getElementById('friendName');
-    const body=document.getElementById('friendLibraryBody');
-    if(!header||!name||body?.hidden)return;
-    let btn=document.getElementById('mobileFriendProfileBtn');
-    if(!btn){
-      btn=document.createElement('button');btn.id='mobileFriendProfileBtn';btn.type='button';btn.className='mobile-friend-profile-btn';
-      name.insertAdjacentElement('afterend',btn);
-    }
-    btn.textContent=`Switch ${name.textContent} ▾`;
   }
 
   function bind(){
@@ -262,13 +224,10 @@
       if(e.target.closest('[data-mobile-storage]')){saveScroll();document.querySelector('.tab[data-tab="storage"]')?.click();writePrefs({lastTab:'storage'});closeSheet(document.getElementById('mobileCardSheet'));restoreScroll('storage');return}
       const full=e.target.closest('[data-mobile-full-card]');if(full){openFullCard(full.dataset.mobileFullCard);return}
 
-      if(e.target.closest('#mobileFriendProfileBtn')){document.getElementById('friendBrowseAnother')?.click();return}
-
       const tab=e.target.closest('[data-mobile-tab]:not([data-mobile-tab="tools"]),.tab');
       if(tab){const next=tab.dataset.mobileTab||tab.dataset.tab;if(next){saveScroll();writePrefs({lastTab:next});setTimeout(()=>restoreScroll(next),0)}}
       const sub=e.target.closest('.tool-subtabs [data-tool]');if(sub)writePrefs({lastTool:sub.dataset.tool});
       if(e.target.closest('.filter-chip'))setTimeout(saveFilters,0);
-      if(e.target.closest('[data-friend-user]'))setTimeout(ensureFriendProfileShortcut,460);
     },true);
 
     document.addEventListener('change',e=>{
@@ -281,15 +240,14 @@
     });
     document.addEventListener('input',e=>{if(mq.matches&&e.target.id==='cardSearch')saveFilters()});
 
-    window.addEventListener('riftbound-social-ready',()=>setTimeout(ensureFriendProfileShortcut,80));
-    window.addEventListener('riftbound-cloud-restored',()=>setTimeout(()=>{ensureFilterButton();ensureFriendProfileShortcut()},80));
+    window.addEventListener('riftbound-social-ready',()=>setTimeout(ensureFilterButton,80));
+    window.addEventListener('riftbound-cloud-restored',()=>setTimeout(ensureFilterButton,80));
     window.addEventListener('pagehide',saveScroll);
   }
 
   function apply(){
     ensureFilterButton();
-    if(mq.matches)ensureFriendProfileShortcut();
-    else document.querySelectorAll('.mobile-sheet-layer').forEach(x=>x.hidden=true);
+    if(!mq.matches)document.querySelectorAll('.mobile-sheet-layer').forEach(x=>x.hidden=true);
   }
 
   function init(){

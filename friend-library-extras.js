@@ -30,7 +30,7 @@
       select.appendChild(option);
     }
     const profile=ownProfile();
-    if(profile&&ALL_USERNAME_COLORS.includes(profile.username_color))select.value=profile.username_color;
+    if(profile&&ALL_USERNAME_COLORS.includes(profile.username_color)&&select.value!==profile.username_color)select.value=profile.username_color;
   }
 
   function rememberOwnColor(){
@@ -44,10 +44,10 @@
     document.querySelectorAll('.username-styled').forEach(element=>{
       const username=String(element.textContent||'').trim().replace(/^@/,'').toLowerCase();
       const color=profileColors.get(username);
-      if(color&&ALL_USERNAME_COLORS.includes(color))element.dataset.usernameColor=color;
+      if(color&&ALL_USERNAME_COLORS.includes(color)&&element.dataset.usernameColor!==color)element.dataset.usernameColor=color;
     });
     const profile=ownProfile(),select=document.getElementById('usernameColorSelect');
-    if(profile&&select&&ALL_USERNAME_COLORS.includes(profile.username_color))select.value=profile.username_color;
+    if(profile&&select&&ALL_USERNAME_COLORS.includes(profile.username_color)&&select.value!==profile.username_color)select.value=profile.username_color;
   }
 
   async function refreshProfileColors(){

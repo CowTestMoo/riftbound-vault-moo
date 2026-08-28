@@ -16,9 +16,13 @@
     return actions;
   }
 
-  function ensurePremadeLoader(){
-    if(window.RiftboundPremades||document.getElementById('premadeDeckScript'))return;
-    const s=document.createElement('script');s.id='premadeDeckScript';s.src='./premade-decks.js?v=1';s.defer=true;document.body.appendChild(s);
+  function ensureFeatureLoaders(){
+    if(!window.RiftboundPremades&&!document.getElementById('premadeDeckScript')){
+      const s=document.createElement('script');s.id='premadeDeckScript';s.src='./premade-decks.js?v=1';s.defer=true;document.body.appendChild(s);
+    }
+    if(!document.getElementById('runeFilterScript')){
+      const r=document.createElement('script');r.id='runeFilterScript';r.src='./rune-filters.js?v=1';r.defer=true;document.body.appendChild(r);
+    }
   }
 
   function ensureControls(){
@@ -56,7 +60,7 @@
   }
 
   function init(){
-    ensurePremadeLoader();
+    ensureFeatureLoaders();
     ensureControls();
     setTimeout(ensureControls,350);
     window.addEventListener('riftbound-cloud-restored',ensureControls);

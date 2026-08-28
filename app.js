@@ -1,7 +1,7 @@
 'use strict';
 
 const STORAGE_KEY = 'riftbound-vault-v2';
-const PAGE_SIZE = 120;
+const PAGE_SIZE = 60;
 const DOMAINS = ['Fury','Calm','Mind','Body','Chaos','Order'];
 const TYPES = ['All','Legend','Unit','Rune','Spell','Gear','Battlefield','Token'];
 let catalog = [];
@@ -113,7 +113,7 @@ function describeStorageBox(box){
 async function loadCatalog(){
   try{
     $('catalogStatus').textContent='Loading Riftbound catalog...';
-    const r=await fetch('./data/cards.json',{cache:'no-store'});
+    const r=await fetch('./data/cards.json',{cache:'default'});
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const data=await r.json();
     catalog=Array.isArray(data)?data:(data.cards||[]);
@@ -151,7 +151,7 @@ function filteredCards(){
 }
 function cardTile(c){
   const q=owned(c.cardCode);
-  return `<button class="card-tile" data-card="${esc(c.cardCode)}"><div class="card-image-wrap">${c.imageUrl?`<img class="card-image" loading="lazy" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:`<div class="card-placeholder">${esc(nameOf(c))}</div>`}</div>${q?`<span class="qty-badge">×${q}</span>`:''}<div class="card-caption"><strong>${esc(nameOf(c))}</strong><small>${esc(c.cardSet)} ${esc(c.cardNumber)}</small></div></button>`;
+  return `<button class="card-tile" data-card="${esc(c.cardCode)}"><div class="card-image-wrap">${c.imageUrl?`<img class="card-image" loading="lazy" decoding="async" fetchpriority="low" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:`<div class="card-placeholder">${esc(nameOf(c))}</div>`}</div>${q?`<span class="qty-badge">×${q}</span>`:''}<div class="card-caption"><strong>${esc(nameOf(c))}</strong><small>${esc(c.cardSet)} ${esc(c.cardNumber)}</small></div></button>`;
 }
 function renderCards(){
   const cards=filteredCards(), shown=cards.slice(0,visibleCount);
@@ -186,7 +186,7 @@ function renderAll(){ renderFilters(); renderCards(); renderStats(); renderStora
 function showCard(code){
   const c=byCode.get(code); if(!c) return;
   const loc=locationFor(c);
-  $('cardDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>${esc(nameOf(c))}</h2><button class="close-btn" data-close="cardDialog">×</button></div><div class="detail-layout"><div>${c.imageUrl?`<img class="detail-image" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:'<div class="detail-image card-placeholder">No image</div>'}</div><div><div class="detail-meta">${esc(c.cardSet)} • ${esc(c.cardType)} • ${esc((c.domains||[]).join(' / '))}</div><div class="info-grid"><div class="info-cell"><strong>${owned(code)}</strong><small>Total owned</small></div><div class="info-cell"><strong>${available(code)}</strong><small>Available</small></div><div class="info-cell"><strong>${decked(code)}</strong><small>In decks</small></div><div class="info-cell"><strong>${loaned(code)}</strong><small>Loaned</small></div></div><div class="location-callout"><strong>Store in:</strong><br>${loc.box?`${esc(loc.boxName)} • Position ${loc.box} • ${esc(loc.section)}`:'Unassigned • customize Storage to choose a destination'}</div><div class="modal-actions"><button class="primary-btn" data-adjust="1" data-code="${esc(code)}">+1</button><button class="primary-btn" data-adjust="4" data-code="${esc(code)}">+4</button><button class="primary-btn" data-adjust="10" data-code="${esc(code)}">+10</button><button class="ghost-btn" data-adjust="-1" data-code="${esc(code)}">−1</button></div></div></div></div>`;
+  $('cardDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>${esc(nameOf(c))}</h2><button class="close-btn" data-close="cardDialog">×</button></div><div class="detail-layout"><div>${c.imageUrl?`<img class="detail-image" decoding="async" src="${esc(c.imageUrl)}" alt="${esc(nameOf(c))}">`:'<div class="detail-image card-placeholder">No image</div>'}</div><div><div class="detail-meta">${esc(c.cardSet)} • ${esc(c.cardType)} • ${esc((c.domains||[]).join(' / '))}</div><div class="info-grid"><div class="info-cell"><strong>${owned(code)}</strong><small>Total owned</small></div><div class="info-cell"><strong>${available(code)}</strong><small>Available</small></div><div class="info-cell"><strong>${decked(code)}</strong><small>In decks</small></div><div class="info-cell"><strong>${loaned(code)}</strong><small>Loaned</small></div></div><div class="location-callout"><strong>Store in:</strong><br>${loc.box?`${esc(loc.boxName)} • Position ${loc.box} • ${esc(loc.section)}`:'Unassigned • customize Storage to choose a destination'}</div><div class="modal-actions"><button class="primary-btn" data-adjust="1" data-code="${esc(code)}">+1</button><button class="primary-btn" data-adjust="4" data-code="${esc(code)}">+4</button><button class="primary-btn" data-adjust="10" data-code="${esc(code)}">+10</button><button class="ghost-btn" data-adjust="-1" data-code="${esc(code)}">−1</button></div></div></div></div>`;
   $('cardDialog').showModal();
   signalUi('card-dialog');
 }
@@ -203,8 +203,8 @@ function openBulk(){
 }
 function renderBulk(text){
   if(!$('bulkResults')) return;
-  const matches=catalog.filter(c=>norm(nameOf(c)).includes(norm(text))).slice(0,60);
-  $('bulkResults').innerHTML=matches.map(c=>`<div class="bulk-row"><div>${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}</div><div><strong>${esc(nameOf(c))}</strong><br><small>Owned ${owned(c.cardCode)}</small></div><div class="bulk-buttons"><button data-bulk="1" data-code="${esc(c.cardCode)}">+1</button><button data-bulk="4" data-code="${esc(c.cardCode)}">+4</button><button data-bulk="10" data-code="${esc(c.cardCode)}">+10</button></div></div>`).join('');
+  const matches=catalog.filter(c=>norm(nameOf(c)).includes(norm(text))).slice(0,40);
+  $('bulkResults').innerHTML=matches.map(c=>`<div class="bulk-row"><div>${c.imageUrl?`<img loading="lazy" decoding="async" fetchpriority="low" src="${esc(c.imageUrl)}" alt="">`:''}</div><div><strong>${esc(nameOf(c))}</strong><br><small>Owned ${owned(c.cardCode)}</small></div><div class="bulk-buttons"><button data-bulk="1" data-code="${esc(c.cardCode)}">+1</button><button data-bulk="4" data-code="${esc(c.cardCode)}">+4</button><button data-bulk="10" data-code="${esc(c.cardCode)}">+10</button></div></div>`).join('');
 }
 function switchTab(tab){ qsa('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); qsa('.view').forEach(v=>v.classList.remove('active')); $(`${tab}View`)?.classList.add('active'); signalUi('tab'); }
 function exportBackup(){ const b=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),state},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`riftbound-vault-backup-${new Date().toISOString().slice(0,10)}.json`; a.click(); }

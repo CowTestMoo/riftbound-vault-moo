@@ -55,11 +55,24 @@
     return tools;
   }
 
+  function ensureBrowseButton(){
+    let browse=document.getElementById('browseLibrariesUtilityBtn');
+    if(!signedIn())return browse;
+    if(!browse){
+      browse=document.createElement('button');
+      browse.id='browseLibrariesUtilityBtn';
+      browse.type='button';
+      browse.textContent='Libraries';
+      browse.setAttribute('aria-label','Browse other users libraries');
+    }
+    return browse;
+  }
+
   function prepareBrowseButton(bar){
-    const browse=document.getElementById('browseLibrariesUtilityBtn');
+    const browse=ensureBrowseButton();
     if(!browse)return;
     browse.textContent='Libraries';
-    browse.classList.remove('tab','browse-library-tab','library-nav-btn');
+    browse.classList.remove('tab','browse-library-tab','library-nav-btn','ghost-btn','ux-settings-btn');
     browse.classList.add('mobile-utility-btn','mobile-library-utility');
     const settings=document.getElementById('uxSettingsBtn');
     if(settings?.parentElement===bar)bar.insertBefore(browse,settings);
@@ -89,15 +102,9 @@
 
   function restoreDesktopControls(){
     const bar=document.getElementById('mobileUtilityBar');
-
-    /* Move live controls out of the mobile bar before clearing it. */
     window.RiftboundUtilities?.placeDesktopUtilities?.();
-
-    /* Anything still inside is mobile-only and can now be safely removed. */
     if(bar)bar.replaceChildren();
     clearMobileOnlyState();
-
-    /* A second pass handles controls created by late auth/profile rendering. */
     requestAnimationFrame(()=>window.RiftboundUtilities?.placeDesktopUtilities?.());
   }
 

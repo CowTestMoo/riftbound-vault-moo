@@ -14,58 +14,69 @@
   };
 
   function rawUX(){try{return JSON.parse(localStorage.getItem(UX_KEY)||'{}')}catch{return {}}}
-  function readUX(){try{return {density:'normal',intensity:'supernova',background:98,sound:false,cosmicSound:true,neonSound:true,cosmicVolume:42,neonVolume:38,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {density:'normal',intensity:'supernova',background:98,sound:false,cosmicSound:true,neonSound:true,cosmicVolume:42,neonVolume:38}}}
-  function writeUX(patch){const next={...readUX(),...patch,sound:false};localStorage.setItem(UX_KEY,JSON.stringify(next));return next}
+  function readUX(){
+    try{
+      const s={density:'normal',intensity:'supernova',background:100,sound:false,cosmicSound:true,neonSound:true,cosmicVolume:100,neonVolume:100,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')};
+      return {...s,background:100,cosmicVolume:100,neonVolume:100};
+    }catch{return {density:'normal',intensity:'supernova',background:100,sound:false,cosmicSound:true,neonSound:true,cosmicVolume:100,neonVolume:100}}
+  }
+  function writeUX(patch){const next={...readUX(),...patch,sound:false,background:100,cosmicVolume:100,neonVolume:100};localStorage.setItem(UX_KEY,JSON.stringify(next));return next}
   function theme(s=readUX()){return s.intensity==='neon'?'neon':'cosmic'}
   function enabled(t=theme(),s=readUX()){return t==='neon'?!!s.neonSound:!!s.cosmicSound}
-  function volume(t=theme(),s=readUX()){return Math.max(0,Math.min(1,Number(t==='neon'?s.neonVolume:s.cosmicVolume)/100))}
+  function volume(){return 1}
 
   function migrate(){
-    const raw=rawUX(),s=readUX(),patch={sound:false};
+    const raw=rawUX(),s=readUX(),patch={sound:false,background:100,cosmicVolume:100,neonVolume:100};
     if(s.intensity!=='neon')patch.intensity='supernova';
-    if(raw.audioDefaultsV2!==true){patch.cosmicSound=true;patch.neonSound=true;patch.audioDefaultsV2=true}
+    /* One-time v3 migration fixes older installs where Cosmic audio could remain disabled. */
+    if(raw.audioDefaultsV3!==true){patch.cosmicSound=true;patch.neonSound=true;patch.audioDefaultsV3=true}
     writeUX(patch);
   }
 
   function ensurePlanet(){const line=document.querySelector('.vault-title-line');if(!line||line.querySelector('.vault-planet'))return;const p=document.createElement('span');p.className='vault-planet';p.setAttribute('aria-hidden','true');line.prepend(p)}
   function syncPlanet(t){if(t==='neon')document.querySelectorAll('.vault-planet').forEach(x=>x.remove());else ensurePlanet()}
-  function cleanLegacyAudioRows(){document.getElementById('soundToggle')?.closest('.setting-row')?.remove();document.getElementById('soundVolume')?.closest('.setting-row')?.remove();document.querySelectorAll('.audio-pack-note').forEach(x=>x.remove())}
+  function cleanFixedControls(){
+    document.getElementById('soundToggle')?.closest('.setting-row')?.remove();
+    document.getElementById('soundVolume')?.closest('.setting-row')?.remove();
+    document.getElementById('themeAudioVolumeRow')?.remove();
+    document.getElementById('backgroundRange')?.closest('.setting-row')?.remove();
+    document.querySelectorAll('.audio-pack-note').forEach(x=>x.remove());
+  }
 
   function ensureThemeControls(){
     const panel=document.getElementById('uxSettings'),select=document.getElementById('intensitySelect');if(!panel||!select)return false;
     const themeRow=select.closest('.setting-row'),copy=themeRow?.querySelector('.setting-copy');
-    if(copy)copy.innerHTML='<strong>Theme</strong><small>Choose the visual system for your entire vault.</small>';
+    if(copy)copy.innerHTML='<strong>Theme</strong><small>Choose the visual system for your entire vault. Visual intensity is fixed at maximum.</small>';
     if(select.dataset.twoThemes!=='1'){select.innerHTML='<option value="supernova">Cosmic</option><option value="neon">Neon</option>';select.dataset.twoThemes='1'}
-    cleanLegacyAudioRows();
+    cleanFixedControls();
     if(!document.getElementById('themeAudioRow')){
-      const row=document.createElement('div');row.id='themeAudioRow';row.className='setting-row';row.innerHTML='<div class="setting-copy"><strong id="themeAudioTitle">Cosmic audio</strong><small id="themeAudioHelp">Celestial chimes, starfield sweeps, and deep-space interface tones.</small></div><input id="themeAudioToggle" class="sound-toggle" type="checkbox" aria-label="Theme audio">';themeRow.insertAdjacentElement('afterend',row);
-      const vol=document.createElement('div');vol.id='themeAudioVolumeRow';vol.className='setting-row';vol.innerHTML='<div class="setting-copy"><strong id="themeAudioVolumeTitle">Cosmic volume</strong><small>Each theme remembers its own sound setting and volume.</small></div><div class="theme-audio-controls"><input id="themeAudioVolume" class="theme-audio-volume" type="range" min="0" max="100" step="1"><span id="themeAudioLevel" class="theme-audio-level"></span><button id="themeAudioTest" class="theme-audio-test" type="button">Test</button></div>';row.insertAdjacentElement('afterend',vol)
+      const row=document.createElement('div');row.id='themeAudioRow';row.className='setting-row';row.innerHTML='<div class="setting-copy"><strong id="themeAudioTitle">Cosmic audio</strong><small id="themeAudioHelp">Celestial chimes, starfield sweeps, and deep-space interface tones. Audio output is fixed at full.</small></div><div class="settings-inline-actions"><input id="themeAudioToggle" class="sound-toggle" type="checkbox" aria-label="Theme audio"><button id="themeAudioTest" class="theme-audio-test" type="button">Test</button></div>';themeRow.insertAdjacentElement('afterend',row);
     }
     return true;
   }
 
   function ensureSection(id,label,before){let el=document.getElementById(id);if(!before)return;if(!el){el=document.createElement('div');el.id=id;el.className='settings-section-title';el.textContent=label}if(el.nextElementSibling!==before)before.insertAdjacentElement('beforebegin',el)}
   function organizeSettings(){
-    const panel=document.getElementById('uxSettings');if(!panel)return;panel.classList.add('organized-settings');
+    const panel=document.getElementById('uxSettings');if(!panel)return;panel.classList.add('organized-settings');cleanFixedControls();
     const head=panel.querySelector('.settings-head h3');if(head)head.textContent='Settings';
     const themeRow=document.getElementById('intensitySelect')?.closest('.setting-row'),soundRow=document.getElementById('themeAudioRow');
     const cloud=document.getElementById('cloudSettingRow'),data=document.getElementById('dataToolsSetting'),firstData=cloud||data;
     ensureSection('appearanceSettingsTitle','Appearance',themeRow);ensureSection('soundSettingsTitle','Sound',soundRow);if(firstData)ensureSection('dataSettingsTitle','Cloud & data',firstData);
-    const background=document.getElementById('backgroundRange')?.closest('.setting-row');if(background)background.classList.add('appearance-setting');
-    themeRow?.classList.add('appearance-setting');soundRow?.classList.add('sound-setting');document.getElementById('themeAudioVolumeRow')?.classList.add('sound-setting');cloud?.classList.add('data-setting');data?.classList.add('data-setting')
+    themeRow?.classList.add('appearance-setting');soundRow?.classList.add('sound-setting');cloud?.classList.add('data-setting');data?.classList.add('data-setting')
   }
 
   function apply(){
     if(!ensureThemeControls())return;organizeSettings();
     const s=readUX(),t=theme(s),isNeon=t==='neon';document.body.dataset.vaultTheme=t;document.body.dataset.intensity=isNeon?'neon':'supernova';syncPlanet(t);
+    document.documentElement.style.setProperty('--sky-opacity','1');
     const select=document.getElementById('intensitySelect');if(select)select.value=isNeon?'neon':'supernova';
     const settingsBtn=document.getElementById('uxSettingsBtn');if(settingsBtn)settingsBtn.textContent='Settings';
     const head=document.querySelector('#uxSettings .settings-head h3');if(head)head.textContent='Settings';
     const subtitle=document.querySelector('.vault-subtitle');if(subtitle)subtitle.textContent=isNeon?'A Neon Riftbound Archive':'A Cosmic Riftbound Archive';
-    const title=document.getElementById('themeAudioTitle'),help=document.getElementById('themeAudioHelp'),volTitle=document.getElementById('themeAudioVolumeTitle'),toggle=document.getElementById('themeAudioToggle'),range=document.getElementById('themeAudioVolume'),level=document.getElementById('themeAudioLevel');
+    const title=document.getElementById('themeAudioTitle'),help=document.getElementById('themeAudioHelp'),toggle=document.getElementById('themeAudioToggle');
     if(title)title.textContent=isNeon?'Neon audio':'Cosmic audio';
-    if(help)help.textContent=isNeon?'Original cyberpunk data chirps, synth pulses, glitches, terminal clicks, and network transitions.':'Celestial chimes, constellation chords, starfield sweeps, comet accents, and deep-space transitions.';
-    if(volTitle)volTitle.textContent=isNeon?'Neon volume':'Cosmic volume';if(toggle)toggle.checked=enabled(t,s);const v=Math.round(volume(t,s)*100);if(range)range.value=String(v);if(level)level.textContent=`${v}%`;
+    if(help)help.textContent=isNeon?'Original cyberpunk data chirps, synth pulses, glitches, terminal clicks, and network transitions. Audio output is fixed at full.':'Celestial chimes, constellation chords, starfield sweeps, comet accents, and deep-space transitions. Audio output is fixed at full.';
+    if(toggle)toggle.checked=enabled(t,s);
   }
 
   function play(kind='click',force=false){
@@ -92,8 +103,6 @@
     }
   },true);
 
-  document.addEventListener('input',e=>{if(e.target.id==='themeAudioVolume'){const t=theme(),v=Math.max(0,Math.min(100,Number(e.target.value)));writeUX(t==='neon'?{neonVolume:v}:{cosmicVolume:v});const level=document.getElementById('themeAudioLevel');if(level)level.textContent=`${v}%`}},true);
-
   document.addEventListener('click',e=>{
     if(e.target.closest('#themeAudioTest')){
       const t=theme();writeUX(t==='neon'?{neonSound:true,sound:false}:{cosmicSound:true,sound:false});apply();setTimeout(()=>play('success'),25);return;
@@ -106,6 +115,6 @@
   window.addEventListener('riftbound-social-ready',()=>setTimeout(refresh,20));
 
   function init(){migrate();setTimeout(refresh,0);setTimeout(refresh,500);setTimeout(decorateStorage,1100)}
-  window.RiftboundTheme={play,refresh,getTheme:()=>theme()};
+  window.RiftboundTheme={play,refresh,getTheme:()=>theme(),getVolume:volume};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

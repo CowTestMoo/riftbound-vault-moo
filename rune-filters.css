@@ -1,0 +1,27 @@
+/* Theme-independent Riftbound domain rune art for filters. */
+#domainFilters .domain-glyph,
+.friend-filters .domain-glyph,
+.mobile-filter-choice[data-mobile-filter-kind="domain"] .domain-glyph{display:none!important}
+
+#domainFilters .filter-chip[data-value]:not([data-value="All"]),
+.domain-row .filter-chip[data-value]:not([data-value="All"]),
+.mobile-filter-choice[data-mobile-filter-kind="domain"]{display:inline-flex;align-items:center;gap:7px}
+
+#domainFilters .filter-chip[data-value]:not([data-value="All"])::before,
+.domain-row .filter-chip[data-value]:not([data-value="All"])::before,
+.mobile-filter-choice[data-mobile-filter-kind="domain"]:not([data-mobile-filter-value="All"])::before{
+  content:"";display:inline-block;width:20px;height:20px;flex:0 0 20px;border-radius:6px;
+  background-image:var(--domain-rune-art);background-size:245% auto;background-position:50% 35%;background-repeat:no-repeat;
+  border:1px solid rgba(255,255,255,.2);box-shadow:0 0 10px rgba(124,230,255,.12),inset 0 0 0 1px rgba(255,255,255,.04)
+}
+
+#domainFilters .filter-chip[data-value="Fury"],.domain-row .filter-chip[data-value="Fury"],.mobile-filter-choice[data-mobile-filter-value="Fury"]{--domain-rune-art:url('https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f95ed6ba0c4d4d357c45bf5bdb1a8e540af1f85f-744x1039.png')}
+#domainFilters .filter-chip[data-value="Calm"],.domain-row .filter-chip[data-value="Calm"],.mobile-filter-choice[data-mobile-filter-value="Calm"]{--domain-rune-art:url('https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9b70aa1b334728a3e8beeea0c9154a2d0f79b1eb-744x1039.png')}
+#domainFilters .filter-chip[data-value="Mind"],.domain-row .filter-chip[data-value="Mind"],.mobile-filter-choice[data-mobile-filter-value="Mind"]{--domain-rune-art:url('https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/33df1c56c6e76f9cb783c19161f16fcdbdc20f98-744x1039.png')}
+#domainFilters .filter-chip[data-value="Body"],.domain-row .filter-chip[data-value="Body"],.mobile-filter-choice[data-mobile-filter-value="Body"]{--domain-rune-art:url('https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3313c73c5b31daa482073bfefbf4d2255a89d7d0-744x1039.png')}
+#domainFilters .filter-chip[data-value="Chaos"],.domain-row .filter-chip[data-value="Chaos"],.mobile-filter-choice[data-mobile-filter-value="Chaos"]{--domain-rune-art:url('https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3861fc566891a70c21cf3d3075adec716deb7080-744x1039.png')}
+#domainFilters .filter-chip[data-value="Order"],.domain-row .filter-chip[data-value="Order"],.mobile-filter-choice[data-mobile-filter-value="Order"]{--domain-rune-art:url('https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/71e7d71ebadb81ccad7ca4cb8b3fb85d2f5fd4bf-744x1039.png')}
+
+@media(max-width:700px){
+  .mobile-filter-choice[data-mobile-filter-kind="domain"]:not([data-mobile-filter-value="All"])::before{width:22px;height:22px;flex-basis:22px}
+}

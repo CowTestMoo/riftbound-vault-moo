@@ -1,3 +1,6 @@
+@import url('./rune-filters.css?v=1');
+@import url('./premade-decks.css?v=1');
+
 /* Theme consistency fixes */
 :root{--username-theme-color:#edf8ff}
 body[data-vault-theme="cosmic"]{--username-theme-color:#edf8ff}

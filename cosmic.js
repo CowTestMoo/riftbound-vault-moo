@@ -7,7 +7,8 @@
   if (!ctx) return;
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const DPR_CAP = 2;
+  const coarsePointer = window.matchMedia('(pointer: coarse)');
+  const DPR_CAP = coarsePointer.matches ? 1.55 : 1.8;
   let width = 0;
   let height = 0;
   let dpr = 1;
@@ -17,6 +18,7 @@
   let last = performance.now();
   let nextShooter = last + 1800;
   let hidden = document.hidden;
+  let active = document.body?.dataset?.vaultTheme !== 'neon';
 
   const realConstellations = [
     {name:'Orion',color:[124,230,255],phase:.3,speed:.000032,box:{x:.06,y:.12,w:.31,h:.34},stars:[{ra:88.8,dec:7.4,mag:.42},{ra:81.3,dec:6.3,mag:1.64},{ra:83.0,dec:.3,mag:2.23},{ra:84.1,dec:-1.2,mag:1.69},{ra:85.2,dec:-1.9,mag:1.77},{ra:78.6,dec:-8.2,mag:.13},{ra:86.9,dec:-9.7,mag:2.09}],links:[[0,1],[0,4],[1,2],[2,3],[3,4],[2,5],[4,6],[5,6]]},
@@ -29,9 +31,10 @@
   ];
 
   const random=(min,max)=>min+Math.random()*(max-min);
+  function isCosmic(){return document.body?.dataset?.vaultTheme!=='neon'}
   function makeStar(){const depth=Math.pow(Math.random(),1.7);return{x:Math.random(),y:Math.random(),depth,radius:random(.4,1.75)+depth,alpha:random(.24,.96),phase:random(0,Math.PI*2),twinkle:random(.001,.0052),drift:random(.000004,.000022),tint:Math.random()};}
-  function rebuildStars(){const count=Math.max(240,Math.min(720,Math.round((width*height)/3900)));stars=Array.from({length:count},makeStar);}
-  function resize(){dpr=Math.min(window.devicePixelRatio||1,DPR_CAP);width=Math.max(1,window.innerWidth);height=Math.max(1,window.innerHeight);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);canvas.style.width=`${width}px`;canvas.style.height=`${height}px`;ctx.setTransform(dpr,0,0,dpr,0,0);rebuildStars();draw(performance.now(),0);}
+  function rebuildStars(){const count=Math.max(220,Math.min(coarsePointer.matches?560:660,Math.round((width*height)/4300)));stars=Array.from({length:count},makeStar);}
+  function resize(){dpr=Math.min(window.devicePixelRatio||1,DPR_CAP);width=Math.max(1,window.innerWidth);height=Math.max(1,window.innerHeight);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);canvas.style.width=`${width}px`;canvas.style.height=`${height}px`;ctx.setTransform(dpr,0,0,dpr,0,0);rebuildStars();if(active)draw(performance.now(),0);}
   function sceneDrift(time,scale=1){if(reducedMotion.matches)return[0,0];return[Math.sin(time*.00009)*16*scale+Math.cos(time*.000037)*8*scale,Math.cos(time*.000073)*12*scale+Math.sin(time*.000041)*7*scale];}
 
   function drawNebula(time){
@@ -62,10 +65,16 @@
   }
 
   function spawnShooter(){const direction=Math.random()<.84?-1:1,startX=direction<0?random(width*.45,width*1.08):random(-width*.08,width*.3);shooters.push({x:startX,y:random(-height*.04,height*.48),vx:direction<0?random(-.92,-.55):random(.5,.78),vy:random(.30,.62),life:1,length:random(110,220),width:random(.9,1.9)});}
-  function spawnShooterBurst(){const count=Math.random()<.24?3:(Math.random()<.48?2:1);for(let i=0;i<count;i++)setTimeout(()=>{if(!hidden&&!reducedMotion.matches)spawnShooter();},i*random(120,260));}
+  function spawnShooterBurst(){const count=Math.random()<.24?3:(Math.random()<.48?2:1);for(let i=0;i<count;i++)setTimeout(()=>{if(active&&!hidden&&!reducedMotion.matches)spawnShooter();},i*random(120,260));}
   function drawShooters(dt){const step=Math.min(dt,32);shooters=shooters.filter(s=>{s.x+=s.vx*step;s.y+=s.vy*step;s.life-=step*.00125;if(s.life<=0)return false;const mag=Math.hypot(s.vx,s.vy)||1,tx=s.x-(s.vx/mag)*s.length,ty=s.y-(s.vy/mag)*s.length,g=ctx.createLinearGradient(s.x,s.y,tx,ty);g.addColorStop(0,`rgba(242,251,255,${Math.min(1,s.life)})`);g.addColorStop(.18,`rgba(124,230,255,${.78*s.life})`);g.addColorStop(.5,`rgba(121,160,255,${.34*s.life})`);g.addColorStop(1,'rgba(121,160,255,0)');ctx.strokeStyle=g;ctx.lineWidth=s.width;ctx.shadowBlur=8;ctx.shadowColor='rgba(124,230,255,.35)';ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(tx,ty);ctx.stroke();ctx.shadowBlur=0;return true;});}
   function draw(time,dt){ctx.clearRect(0,0,width,height);drawNebula(time);drawConstellations(time);drawStars(time);drawShooters(dt);}
-  function frame(now){if(hidden)return;const dt=now-last;last=now;if(!reducedMotion.matches&&now>=nextShooter){spawnShooterBurst();nextShooter=now+random(1800,4200);}draw(now,dt);if(!reducedMotion.matches)raf=requestAnimationFrame(frame);}
-  function restart(){cancelAnimationFrame(raf);last=performance.now();draw(last,0);if(!reducedMotion.matches&&!hidden)raf=requestAnimationFrame(frame);}
-  window.addEventListener('resize',resize,{passive:true});document.addEventListener('visibilitychange',()=>{hidden=document.hidden;if(hidden)cancelAnimationFrame(raf);else restart();});if(typeof reducedMotion.addEventListener==='function')reducedMotion.addEventListener('change',restart);resize();restart();
+  function frame(now){if(!active||hidden)return;const dt=now-last;last=now;if(!reducedMotion.matches&&now>=nextShooter){spawnShooterBurst();nextShooter=now+random(1800,4200);}draw(now,dt);if(!reducedMotion.matches)raf=requestAnimationFrame(frame);}
+  function restart(){cancelAnimationFrame(raf);if(!active||hidden){ctx.clearRect(0,0,width,height);return}last=performance.now();draw(last,0);if(!reducedMotion.matches)raf=requestAnimationFrame(frame);}
+  function syncTheme(){const next=isCosmic();if(next===active)return;active=next;shooters=[];restart()}
+
+  const themeObserver=new MutationObserver(syncTheme);themeObserver.observe(document.body,{attributes:true,attributeFilter:['data-vault-theme']});
+  window.addEventListener('resize',resize,{passive:true});
+  document.addEventListener('visibilitychange',()=>{hidden=document.hidden;if(hidden)cancelAnimationFrame(raf);else restart();});
+  if(typeof reducedMotion.addEventListener==='function')reducedMotion.addEventListener('change',restart);
+  resize();syncTheme();restart();
 })();

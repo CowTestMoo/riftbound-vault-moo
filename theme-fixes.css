@@ -1,0 +1,26 @@
+/* Theme consistency fixes */
+:root{--username-theme-color:#edf8ff}
+body[data-vault-theme="cosmic"]{--username-theme-color:#edf8ff}
+body[data-vault-theme="neon"]{--username-theme-color:#9affeb}
+
+.username-chip,
+.friend-user-row strong,
+.friend-header h1,
+.mobile-friend-profile-btn{color:var(--username-theme-color)!important}
+
+body[data-vault-theme="cosmic"] .username-chip,
+body[data-vault-theme="cosmic"] .friend-user-row strong,
+body[data-vault-theme="cosmic"] .friend-header h1,
+body[data-vault-theme="cosmic"] .mobile-friend-profile-btn{text-shadow:0 0 10px rgba(124,230,255,.24),0 0 20px rgba(121,160,255,.12)}
+
+body[data-vault-theme="neon"] .username-chip,
+body[data-vault-theme="neon"] .friend-user-row strong,
+body[data-vault-theme="neon"] .friend-header h1,
+body[data-vault-theme="neon"] .mobile-friend-profile-btn{text-shadow:-2px 0 rgba(255,60,247,.32),2px 0 rgba(57,255,216,.34),0 0 14px rgba(57,255,216,.18)}
+
+/* Neon should not borrow Cosmic's planetary identity. The JS also removes the node entirely. */
+body[data-vault-theme="neon"] .vault-planet{display:none!important}
+body[data-vault-theme="neon"] #cosmicSky{display:none!important;visibility:hidden!important;opacity:0!important;filter:none!important}
+
+/* Keep Cosmic planet styling exclusive to Cosmic. */
+body[data-vault-theme="cosmic"] .vault-planet{display:inline-block}

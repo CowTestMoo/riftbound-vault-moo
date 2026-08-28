@@ -46,9 +46,16 @@
       const [set,num]=needle.split('-',2);const cleanNum=String(num||'').replace(/^0+(?=\d)/,'');
       return String(c.setCode||'').toLowerCase()===set&&number===cleanNum;
     });
-    return candidates.sort((a,b)=>{
+    const exact=candidates.sort((a,b)=>{
       const ac=codeOf(a),bc=codeOf(b);const av=/star|alt|showcase|signature|over|foil|a-/.test(ac)?1:0,bv=/star|alt|showcase|signature|over|foil|a-/.test(bc)?1:0;return av-bv||ac.length-bc.length;
-    })[0]||null;
+    })[0];
+    if(exact)return exact;
+    const runeMatch=needle.match(/^[a-z]+-r0?([1-6])$/),runeNames=['','Fury Rune','Calm Rune','Mind Rune','Body Rune','Chaos Rune','Order Rune'];
+    if(runeMatch){
+      const runeName=runeNames[Number(runeMatch[1])];
+      return catalog().filter(c=>String(c.fullName||c.name||'').toLowerCase()===runeName.toLowerCase()).sort((a,b)=>Number(String(a.setCode||'').toLowerCase()!=='ogn')-Number(String(b.setCode||'').toLowerCase()!=='ogn')||codeOf(a).length-codeOf(b).length)[0]||null;
+    }
+    return null;
   }
   function resolveTemplate(t){
     const cards={},missing=[];
@@ -64,7 +71,8 @@
   }
   function ensureButton(){
     const newBtn=document.getElementById('newDeckBtn');if(!newBtn)return;
-    let btn=document.getElementById('premadeDeckBtn');if(!btn){btn=document.createElement('button');btn.id='premadeDeckBtn';btn.type='button';btn.className='ghost-btn';btn.textContent='Premade Decks';newBtn.insertAdjacentElement('beforebegin',btn)}
+    let btn=document.getElementById('premadeDeckBtn');if(!btn){btn=document.createElement('button');btn.id='premadeDeckBtn';btn.type='button';btn.className='primary-btn deck-action-btn';btn.textContent='Premade Decks';newBtn.insertAdjacentElement('beforebegin',btn)}
+    btn.classList.remove('ghost-btn');btn.classList.add('primary-btn','deck-action-btn');
   }
   function heroFor(t){const c=locate(t.hero);return c?.imageUrl||''}
   function renderManager(selected=''){
@@ -74,7 +82,7 @@
     const t=templateById(selected)||TEMPLATES[0],resolved=resolveTemplate(t),count=premadeInstances(s,t.id).length;
     const lines=Object.entries(resolved.cards).map(([code,q])=>{const c=window.RiftboundApp?.getCard?.(code)||catalog().find(x=>x.cardCode===code);return `<div class="premade-card-line"><span>${esc(c?.fullName||c?.name||code)}</span><b>×${q}</b></div>`}).join('');
     const missing=resolved.missing.length?`<div class="premade-warning">This template cannot be added yet because ${resolved.missing.length} card${resolved.missing.length===1?' is':'s are'} missing from the current catalog: ${esc(resolved.missing.join(', '))}.</div>`:'';
-    d.innerHTML=`<div class="modal-inner premade-manager"><div class="modal-head"><div><h2>Premade Decks</h2><p>Official ready-to-play deck templates. Adding one adds its physical cards to your vault and reserves them in that deck.</p></div><button class="close-btn" type="button" data-premade-close>×</button></div><div class="premade-layout"><div class="premade-list">${list}</div><aside class="premade-preview"><div class="premade-preview-head">${heroFor(t)?`<img src="${esc(heroFor(t))}" alt="">`:''}<div><small>${esc(t.set)}</small><h3>${esc(t.name)}</h3><p>${t.total} physical cards • ${count} added to this vault</p></div></div>${missing}<div class="premade-card-list">${lines||'<div class="empty-state">No cards resolved.</div>'}</div><button class="primary-btn premade-add-btn" type="button" data-premade-add="${esc(t.id)}" ${resolved.missing.length?'disabled':''}>${count?'Add Another Copy':'Add This Premade'}</button></aside></div></div>`;
+    d.innerHTML=`<div class="modal-inner premade-manager"><div class="modal-head"><div><h2>Premade Decks</h2><p>Official ready-to-play deck templates. Adding one adds its physical cards to your vault and reserves them in that deck.</p></div><button class="close-btn" type="button" data-premade-close aria-label="Close premade decks">×</button></div><div class="premade-layout"><div class="premade-list">${list}</div><aside class="premade-preview"><div class="premade-preview-head">${heroFor(t)?`<img src="${esc(heroFor(t))}" alt="">`:''}<div><small>${esc(t.set)}</small><h3>${esc(t.name)}</h3><p>${t.total} physical cards • ${count} added to this vault</p></div></div>${missing}<div class="premade-card-list">${lines||'<div class="empty-state">No cards resolved.</div>'}</div><button class="primary-btn premade-add-btn" type="button" data-premade-add="${esc(t.id)}" ${resolved.missing.length?'disabled':''}>${count?'Add Another Copy':'Add This Premade'}</button></aside></div></div>`;
     return d;
   }
   function openManager(id=''){const d=renderManager(id||TEMPLATES[0].id);if(!d.open)d.showModal()}
@@ -131,6 +139,6 @@
   window.addEventListener('riftbound-ui-render',e=>{if((e.detail?.scopes||[]).includes('decks'))setTimeout(decorateDecks,0)});
   window.addEventListener('riftbound-cloud-restored',()=>setTimeout(decorateDecks,80));
   function init(){setTimeout(decorateDecks,350);setTimeout(decorateDecks,1100)}
-  window.RiftboundPremades={templates:TEMPLATES,open:openManager};
+  window.RiftboundPremades={templates:TEMPLATES,open:openManager,resolveTemplate,locate};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

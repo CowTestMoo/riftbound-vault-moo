@@ -23,7 +23,6 @@
     if(!nav)return null;
     document.getElementById('mobileToolsUtilityBtn')?.remove();
 
-    /* Keep the legacy Tools mobile-tab node hidden so vault-features does not recreate it. */
     let legacy=nav.querySelector('[data-mobile-tab="tools"]');
     if(!legacy){
       legacy=document.createElement('button');
@@ -75,8 +74,9 @@
 
   function restoreDesktopControls(){
     const settings=document.getElementById('uxSettingsBtn');
-    const stack=document.getElementById('cosmicUtilityStack');
-    if(settings&&stack&&settings.parentElement!==stack)stack.appendChild(settings);
+    const actions=document.getElementById('topbarActions');
+    const exportBtn=document.getElementById('exportBtn');
+    if(settings&&actions&&settings.parentElement!==actions)actions.insertBefore(settings,exportBtn||null);
     settings?.classList.remove('mobile-utility-btn','mobile-settings-utility');
 
     const browse=document.getElementById('browseLibrariesUtilityBtn');

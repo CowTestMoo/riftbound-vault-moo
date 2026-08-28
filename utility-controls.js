@@ -4,23 +4,6 @@
   const mobile=()=>window.matchMedia('(max-width:700px)').matches;
   function signedIn(){return !!window.RiftboundCloud?.getSession?.()?.user}
 
-  function restoreOriginalHeader(topbar){
-    const actions=document.getElementById('topbarActions');
-    const exportBtn=document.getElementById('exportBtn');
-    const account=document.getElementById('socialAccountArea');
-
-    /* Restore the original header flow: brand -> Export -> username/account. */
-    if(exportBtn&&exportBtn.parentElement!==topbar)topbar.insertBefore(exportBtn,account||null);
-    else if(exportBtn&&account&&exportBtn.nextElementSibling!==account)topbar.insertBefore(exportBtn,account);
-
-    if(actions){
-      [...actions.children].forEach(child=>{
-        if(child!==exportBtn&&child.id!=='uxSettingsBtn')topbar.insertBefore(child,account||null);
-      });
-      actions.remove();
-    }
-  }
-
   function ensureFeatureLoaders(){
     if(!window.RiftboundPremades&&!document.getElementById('premadeDeckScript')){
       const s=document.createElement('script');s.id='premadeDeckScript';s.src='./premade-decks.js?v=1';s.defer=true;document.body.appendChild(s);
@@ -30,60 +13,111 @@
     }
   }
 
-  function placeDesktopUtilities(settings,browse,tabs){
-    settings.textContent='Settings';
-    settings.classList.remove('ghost-btn','ux-settings-btn','mobile-utility-btn','mobile-settings-utility');
-    settings.classList.add('library-nav-btn');
-
-    const tools=tabs.querySelector('[data-tab="tools"]');
-    if(browse){
-      browse.textContent='Browse Libraries';
-      browse.classList.remove('mobile-utility-btn','mobile-library-utility');
-      browse.classList.add('library-nav-btn');
-      if(tools&&tools.nextElementSibling!==browse)tools.insertAdjacentElement('afterend',browse);
-      else if(!tools&&browse.parentElement!==tabs)tabs.appendChild(browse);
-      if(browse.nextElementSibling!==settings)browse.insertAdjacentElement('afterend',settings);
-    }else if(tools){
-      if(tools.nextElementSibling!==settings)tools.insertAdjacentElement('afterend',settings);
-    }else if(settings.parentElement!==tabs){
-      tabs.appendChild(settings);
+  function cleanLegacyHeader(topbar){
+    const actions=document.getElementById('topbarActions');
+    if(actions){
+      [...actions.children].forEach(child=>topbar.appendChild(child));
+      actions.remove();
     }
+    document.getElementById('globalUtilityBar')?.remove();
   }
 
-  function ensureControls(){
+  function placeBrowseLikeTab(browse,tabs){
+    if(!browse||!tabs)return;
+    browse.textContent='Browse Libraries';
+    browse.classList.remove('library-nav-btn','ghost-btn','ux-settings-btn','mobile-utility-btn','mobile-library-utility','active');
+    browse.classList.add('tab','browse-library-tab');
+    browse.removeAttribute('aria-current');
+    const tools=tabs.querySelector('[data-tab="tools"]');
+    if(tools&&tools.nextElementSibling!==browse)tools.insertAdjacentElement('afterend',browse);
+    else if(!tools&&browse.parentElement!==tabs)tabs.appendChild(browse);
+  }
+
+  function placeSettingsUnderUsername(settings,topbar,tabs){
+    if(!settings||!topbar)return;
+    const account=document.getElementById('socialAccountArea');
+    let stack=document.getElementById('accountSettingsStack');
+
+    settings.textContent='Settings';
+    settings.classList.remove('library-nav-btn','tab','browse-library-tab','ghost-btn','ux-settings-btn','mobile-utility-btn','mobile-settings-utility');
+    settings.classList.add('account-settings-btn');
+
+    if(account){
+      if(!stack){
+        stack=document.createElement('div');
+        stack.id='accountSettingsStack';
+        stack.className='account-settings-stack';
+        const anchor=account.parentElement===topbar?account:null;
+        topbar.insertBefore(stack,anchor);
+      }
+      if(account.parentElement!==stack)stack.prepend(account);
+      if(settings.parentElement!==stack)stack.appendChild(settings);
+      return;
+    }
+
+    stack?.remove();
+    settings.classList.remove('account-settings-btn');
+    settings.classList.add('tab','settings-tab-fallback');
+    const tools=tabs?.querySelector('[data-tab="tools"]');
+    if(tools&&tools.nextElementSibling!==settings)tools.insertAdjacentElement('afterend',settings);
+    else if(tabs&&settings.parentElement!==tabs)tabs.appendChild(settings);
+  }
+
+  function restoreHeaderOrder(topbar){
+    const exportBtn=document.getElementById('exportBtn');
+    const stack=document.getElementById('accountSettingsStack');
+    const account=document.getElementById('socialAccountArea');
+    const anchor=stack?.parentElement===topbar?stack:(account?.parentElement===topbar?account:null);
+    if(exportBtn&&exportBtn.parentElement!==topbar)topbar.insertBefore(exportBtn,anchor);
+    else if(exportBtn&&anchor&&exportBtn.nextElementSibling!==anchor)topbar.insertBefore(exportBtn,anchor);
+  }
+
+  function ensureBrowseButton(){
+    let browse=document.getElementById('browseLibrariesUtilityBtn');
+    if(!signedIn()){
+      browse?.remove();
+      return null;
+    }
+    if(!browse){
+      browse=document.createElement('button');
+      browse.id='browseLibrariesUtilityBtn';
+      browse.type='button';
+      browse.textContent='Browse Libraries';
+      browse.addEventListener('click',event=>{
+        event.preventDefault();
+        event.stopPropagation();
+        window.RiftboundSocial?.openBrowser?.();
+      });
+    }
+    return browse;
+  }
+
+  function placeDesktopUtilities(){
     const settings=document.getElementById('uxSettingsBtn');
     const topbar=document.querySelector('.topbar');
     const tabs=document.querySelector('.tabs');
     if(!settings||!topbar||!tabs)return;
 
-    restoreOriginalHeader(topbar);
-    document.getElementById('globalUtilityBar')?.remove();
+    cleanLegacyHeader(topbar);
+    const browse=ensureBrowseButton();
+    placeBrowseLikeTab(browse,tabs);
+    placeSettingsUnderUsername(settings,topbar,tabs);
+    restoreHeaderOrder(topbar);
+  }
 
-    let browse=document.getElementById('browseLibrariesUtilityBtn');
-    if(!signedIn()){
-      browse?.remove();
-      browse=null;
-    }else if(!browse){
-      browse=document.createElement('button');
-      browse.id='browseLibrariesUtilityBtn';
-      browse.className='library-nav-btn';
-      browse.type='button';
-      browse.textContent='Browse Libraries';
-      browse.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.RiftboundSocial?.openBrowser?.()});
-    }
-
-    /* Mobile owns these controls while under 700px. */
-    if(!mobile())placeDesktopUtilities(settings,browse,tabs);
+  function ensureControls(){
+    ensureFeatureLoaders();
+    if(!mobile())placeDesktopUtilities();
   }
 
   function init(){
-    ensureFeatureLoaders();
     ensureControls();
     setTimeout(ensureControls,350);
     window.addEventListener('riftbound-cloud-restored',ensureControls);
     window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(ensureControls,60));
-    window.addEventListener('riftbound-social-ready',ensureControls);
+    window.addEventListener('riftbound-social-ready',()=>setTimeout(ensureControls,0));
   }
 
+  window.RiftboundUtilities={placeDesktopUtilities};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

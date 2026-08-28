@@ -7,6 +7,7 @@ body[data-vault-theme="neon"]{--username-theme-color:#9affeb}
 .friend-user-row strong,
 .friend-header h1,
 .mobile-friend-profile-btn{color:var(--username-theme-color)!important}
+.username-chip::first-letter{color:inherit!important}
 
 body[data-vault-theme="cosmic"] .username-chip,
 body[data-vault-theme="cosmic"] .friend-user-row strong,

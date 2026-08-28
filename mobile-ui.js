@@ -2,6 +2,7 @@
   'use strict';
 
   const mq=window.matchMedia('(max-width:700px)');
+  let applyFrame=0;
 
   function signedIn(){return !!window.RiftboundCloud?.getSession?.()?.user}
 
@@ -80,10 +81,24 @@
     if(settings.parentElement!==bar)bar.appendChild(settings);
   }
 
+  function clearMobileOnlyState(){
+    document.body.classList.remove('mobile-sheet-open');
+    document.querySelectorAll('.mobile-sheet-layer').forEach(layer=>layer.hidden=true);
+    document.getElementById('mobileFilterBtn')?.setAttribute('aria-hidden','true');
+  }
+
   function restoreDesktopControls(){
     const bar=document.getElementById('mobileUtilityBar');
-    if(bar)bar.replaceChildren();
+
+    /* Move live controls out of the mobile bar before clearing it. */
     window.RiftboundUtilities?.placeDesktopUtilities?.();
+
+    /* Anything still inside is mobile-only and can now be safely removed. */
+    if(bar)bar.replaceChildren();
+    clearMobileOnlyState();
+
+    /* A second pass handles controls created by late auth/profile rendering. */
+    requestAnimationFrame(()=>window.RiftboundUtilities?.placeDesktopUtilities?.());
   }
 
   function syncActive(){
@@ -104,23 +119,36 @@
   function apply(){
     const bar=ensureMobileUtilityBar();
     if(!bar)return;
-    ensureCenterTools();
-    if(!mq.matches){restoreDesktopControls();syncActive();return}
 
+    if(!mq.matches){
+      restoreDesktopControls();
+      syncActive();
+      return;
+    }
+
+    ensureCenterTools();
+    document.getElementById('mobileFilterBtn')?.removeAttribute('aria-hidden');
     prepareSettingsButton(bar);
     if(signedIn())prepareBrowseButton(bar);
     else document.getElementById('browseLibrariesUtilityBtn')?.remove();
     syncActive();
   }
 
+  function scheduleApply(){
+    if(applyFrame)return;
+    applyFrame=requestAnimationFrame(()=>{applyFrame=0;apply()});
+  }
+
   document.addEventListener('click',event=>{
     if(event.target.closest('.tab,[data-mobile-tab],#mobileToolsCenterBtn'))setTimeout(syncActive,0);
   },true);
-  window.addEventListener('riftbound-social-ready',()=>setTimeout(apply,0));
-  window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(apply,80));
-  window.addEventListener('riftbound-cloud-restored',()=>setTimeout(apply,40));
-  if(typeof mq.addEventListener==='function')mq.addEventListener('change',apply);else mq.addListener(apply);
+  window.addEventListener('riftbound-social-ready',()=>setTimeout(scheduleApply,0));
+  window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(scheduleApply,80));
+  window.addEventListener('riftbound-cloud-restored',()=>setTimeout(scheduleApply,40));
+  window.addEventListener('orientationchange',()=>setTimeout(scheduleApply,80));
+  window.addEventListener('resize',scheduleApply,{passive:true});
+  if(typeof mq.addEventListener==='function')mq.addEventListener('change',scheduleApply);else mq.addListener(scheduleApply);
 
-  function init(){setTimeout(apply,0);setTimeout(apply,450);setTimeout(apply,1100)}
+  function init(){setTimeout(scheduleApply,0);setTimeout(scheduleApply,450);setTimeout(scheduleApply,1100)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

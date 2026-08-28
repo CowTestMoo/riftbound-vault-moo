@@ -1,21 +1,14 @@
 .library-nav-btn{appearance:none;border:1px solid transparent;border-radius:10px;background:transparent;color:#8194b8;padding:9px 13px;font:inherit;font-size:.78rem;font-weight:800;white-space:nowrap;cursor:pointer;transition:border-color .16s ease,color .16s ease,background .16s ease}.library-nav-btn:hover{color:#eef9ff;border-color:rgba(121,160,255,.2);background:rgba(121,160,255,.06)}body[data-vault-theme="neon"] .library-nav-btn:hover{color:#9affeb;border-color:rgba(57,255,216,.25);background:rgba(57,255,216,.065);box-shadow:-2px 0 9px rgba(255,60,247,.06),2px 0 11px rgba(57,255,216,.07)}.friend-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px}.friend-header-actions .ghost-btn{min-height:38px}@media(max-width:700px){.friend-header-actions{grid-column:1/-1;width:100%}.friend-header-actions .ghost-btn{flex:1}.library-nav-btn{padding:8px 10px;font-size:.72rem}}
 
-/* Keep the public library on a single vertical scrollbar. */
+/* One vertical scroll owner per full-screen view or dialog. */
 html.friend-library-open-root,html.friend-library-open-root body{height:100%;overflow:hidden!important;overscroll-behavior:none}.friend-library-screen{overscroll-behavior:contain;scrollbar-gutter:stable}.friend-library-open .app-shell{height:100vh;overflow:hidden!important}
+dialog.modal{overflow:auto!important;overscroll-behavior:contain;scrollbar-gutter:stable}.modal>.modal-inner,.deck-viewer-inner,.public-card-inner{max-height:none!important;overflow:visible!important}.feature-search-results,.feature-selected-list,.bulk-fast-results,.bulk-results{overscroll-behavior:contain}
 
-/* Extra animated username colors. */
-[data-username-color="teal"]{--username-color:#61e8d6;--username-glow:rgba(56,214,195,.52)}
-[data-username-color="mint"]{--username-color:#9af7cf;--username-glow:rgba(91,232,171,.48)}
-[data-username-color="lime"]{--username-color:#c7f56b;--username-glow:rgba(178,237,69,.48)}
-[data-username-color="yellow"]{--username-color:#fff278;--username-glow:rgba(255,226,72,.48)}
-[data-username-color="amber"]{--username-color:#ffc65f;--username-glow:rgba(255,174,56,.5)}
-[data-username-color="coral"]{--username-color:#ff977c;--username-glow:rgba(255,112,87,.5)}
-[data-username-color="rose"]{--username-color:#ff7fa7;--username-glow:rgba(255,73,132,.5)}
-[data-username-color="magenta"]{--username-color:#ff78f1;--username-glow:rgba(255,54,224,.5)}
-[data-username-color="violet"]{--username-color:#a98bff;--username-glow:rgba(129,96,255,.5)}
-[data-username-color="indigo"]{--username-color:#8398ff;--username-glow:rgba(76,102,255,.5)}
-[data-username-color="sky"]{--username-color:#8fd7ff;--username-glow:rgba(69,181,255,.5)}
-[data-username-color="aqua"]{--username-color:#72f7ff;--username-glow:rgba(64,224,236,.5)}
-[data-username-color="emerald"]{--username-color:#65e5a1;--username-glow:rgba(48,204,122,.5)}
-[data-username-color="lavender"]{--username-color:#d4b5ff;--username-glow:rgba(187,132,255,.48)}
-[data-username-color="silver"]{--username-color:#c9d3e6;--username-glow:rgba(170,188,220,.46)}
+/* Usernames are static text. Preferred colors control the actual font color everywhere. */
+.username-styled,.animated-username{animation:none!important;filter:none!important;color:var(--username-color,#83edff)!important;text-shadow:none!important;will-change:auto!important}
+[data-username-color="teal"]{--username-color:#61e8d6}[data-username-color="mint"]{--username-color:#9af7cf}[data-username-color="lime"]{--username-color:#c7f56b}[data-username-color="yellow"]{--username-color:#fff278}[data-username-color="amber"]{--username-color:#ffc65f}[data-username-color="coral"]{--username-color:#ff977c}[data-username-color="rose"]{--username-color:#ff7fa7}[data-username-color="magenta"]{--username-color:#ff78f1}[data-username-color="violet"]{--username-color:#a98bff}[data-username-color="indigo"]{--username-color:#8398ff}[data-username-color="sky"]{--username-color:#8fd7ff}[data-username-color="aqua"]{--username-color:#72f7ff}[data-username-color="emerald"]{--username-color:#65e5a1}[data-username-color="lavender"]{--username-color:#d4b5ff}[data-username-color="silver"]{--username-color:#c9d3e6}
+
+.clear-recent-btn{border:1px solid rgba(121,160,255,.14);border-radius:8px;background:rgba(8,14,28,.72);color:#aeefff;padding:5px 8px;font-size:.68rem;font-weight:800}.clear-recent-btn:hover{background:rgba(124,230,255,.08)}.clear-recent-btn:disabled{opacity:.38;cursor:default;transform:none}
+
+/* Trading has been retired from the interface. */
+[data-tool="trades"],#newTradeBtn,.trade-list,.trade-editor-columns,.trade-totals{display:none!important}

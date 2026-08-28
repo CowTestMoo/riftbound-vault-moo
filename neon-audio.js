@@ -2,11 +2,12 @@
   'use strict';
 
   const UX_KEY='riftbound-vault-ux-v1';
+  const MASTER_BOOST=3.25;
   let ctx=null,noiseBuffer=null,lastHover=0,lastClick=0,lastInput=0,transitionLock=0;
 
-  function readUX(){try{return {intensity:'supernova',neonSound:false,neonVolume:38,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {intensity:'supernova',neonSound:false,neonVolume:38}}}
+  function readUX(){try{return {intensity:'supernova',neonSound:true,neonVolume:100,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {intensity:'supernova',neonSound:true,neonVolume:100}}}
   function active(){const s=readUX();return document.body?.dataset?.vaultTheme==='neon'&&s.intensity==='neon'&&!!s.neonSound}
-  function volume(){return Math.max(0,Math.min(1,Number(readUX().neonVolume??38)/100))}
+  function volume(){return 1}
   function audio(){ctx||=new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')ctx.resume();return ctx}
 
   function getNoise(c){
@@ -16,11 +17,11 @@
     return noiseBuffer;
   }
 
-  function out(c,v=1){const g=c.createGain();g.gain.value=Math.max(.0001,volume()*v);g.connect(c.destination);return g}
+  function out(c,v=1){const g=c.createGain();g.gain.value=Math.max(.0001,volume()*v*MASTER_BOOST);g.connect(c.destination);return g}
   function panNode(c,p=0){if(!c.createStereoPanner)return null;const n=c.createStereoPanner();n.pan.value=Math.max(-1,Math.min(1,p));return n}
 
   function osc({c,start=0,f=220,to=null,dur=.08,type='square',gain=.04,pan=0,attack=.004,filter=0,q=.8}){
-    const o=c.createOscillator(),g=c.createGain(),master=out(c,1),p=panNode(c,pan);let tail=g;
+    const o=c.createOscillator(),g=c.createGain(),master=out(c,1),p=panNode(c,pan);
     o.type=type;o.frequency.setValueAtTime(Math.max(20,f),start);if(to)o.frequency.exponentialRampToValueAtTime(Math.max(20,to),start+dur);
     g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain),start+attack);g.gain.exponentialRampToValueAtTime(.0001,start+dur);
     if(filter){const bi=c.createBiquadFilter();bi.type='lowpass';bi.frequency.value=filter;bi.Q.value=q;o.connect(bi);bi.connect(g)}else o.connect(g);
@@ -51,19 +52,15 @@
   function transition(){
     if(!active())return;const now=performance.now();if(now<transitionLock)return;transitionLock=now+1200;
     const c=audio(),t=c.currentTime;
-    /* Stage 1: encrypted link handshake */
     noise({c,start:t,dur:.09,gain:.018,high:2100,low:6200,pan:-.35});
     [220,294,392,523].forEach((f,i)=>osc({c,start:t+i*.052,f:f*.82,to:f*1.42,dur:.09,type:'square',gain:.012,filter:2200,pan:-.45+i*.3}));
-    /* Stage 2: rising network sweep */
     osc({c,start:t+.18,f:58,to:168,dur:.48,type:'sawtooth',gain:.034,filter:760,pan:0});
     osc({c,start:t+.21,f:310,to:1680,dur:.43,type:'triangle',gain:.017,filter:2600,pan:-.24});
     osc({c,start:t+.25,f:420,to:2100,dur:.39,type:'square',gain:.010,filter:3300,pan:.28});
-    for(let i=0;i<7;i++){noise({c,start:t+.27+i*.047,dur:.018,gain:.0065+(i*.0006),high:2700,pan:(i%2?1:-1)*.42});}
-    /* Stage 3: visual glitch burst */
+    for(let i=0;i<7;i++)noise({c,start:t+.27+i*.047,dur:.018,gain:.0065+(i*.0006),high:2700,pan:(i%2?1:-1)*.42});
     noise({c,start:t+.63,dur:.11,gain:.028,high:1050,low:7200});
     osc({c,start:t+.64,f:1900,to:190,dur:.10,type:'sawtooth',gain:.022,filter:3100,pan:-.22});
     osc({c,start:t+.68,f:1540,to:260,dur:.08,type:'square',gain:.018,filter:2600,pan:.25});
-    /* Stage 4: destination handoff / access granted */
     osc({c,start:t+.77,f:54,to:72,dur:.23,type:'sine',gain:.052,filter:300});
     [440,660,880,1320].forEach((f,i)=>osc({c,start:t+.79+i*.045,f,to:f*1.025,dur:.16,type:i===3?'square':'triangle',gain:.017/(1+i*.12),filter:2800,pan:(i-1.5)*.16}));
     noise({c,start:t+.82,dur:.035,gain:.005,high:3900});
@@ -103,6 +100,5 @@
     const now=performance.now();if(now-lastInput<125)return;lastInput=now;search();
   },true);
 
-  /* Public hook used by the friend-library transition and future Neon animations. */
   window.RiftboundNeonAudio={play,transition,isEnabled:active};
 })();

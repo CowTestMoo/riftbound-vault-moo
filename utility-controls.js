@@ -1,7 +1,9 @@
 (() => {
   'use strict';
 
-  const mobile=()=>window.matchMedia('(max-width:700px)').matches;
+  const desktopMq=window.matchMedia('(min-width:701px)');
+  let restoreFrame=0;
+
   function signedIn(){return !!window.RiftboundCloud?.getSession?.()?.user}
 
   function ensureFeatureLoaders(){
@@ -93,6 +95,7 @@
   }
 
   function placeDesktopUtilities(){
+    if(!desktopMq.matches)return;
     const settings=document.getElementById('uxSettingsBtn');
     const topbar=document.querySelector('.topbar');
     const tabs=document.querySelector('.tabs');
@@ -105,9 +108,19 @@
     restoreHeaderOrder(topbar);
   }
 
+  function scheduleDesktopRestore(){
+    if(!desktopMq.matches)return;
+    if(restoreFrame)return;
+    restoreFrame=requestAnimationFrame(()=>{
+      restoreFrame=0;
+      placeDesktopUtilities();
+      setTimeout(placeDesktopUtilities,80);
+    });
+  }
+
   function ensureControls(){
     ensureFeatureLoaders();
-    if(!mobile())placeDesktopUtilities();
+    scheduleDesktopRestore();
   }
 
   function init(){
@@ -116,8 +129,11 @@
     window.addEventListener('riftbound-cloud-restored',ensureControls);
     window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(ensureControls,60));
     window.addEventListener('riftbound-social-ready',()=>setTimeout(ensureControls,0));
+    window.addEventListener('resize',scheduleDesktopRestore,{passive:true});
+    window.addEventListener('orientationchange',()=>setTimeout(scheduleDesktopRestore,80));
+    if(typeof desktopMq.addEventListener==='function')desktopMq.addEventListener('change',scheduleDesktopRestore);else desktopMq.addListener(scheduleDesktopRestore);
   }
 
-  window.RiftboundUtilities={placeDesktopUtilities};
+  window.RiftboundUtilities={placeDesktopUtilities,scheduleDesktopRestore};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

@@ -68,25 +68,31 @@
     const settings=document.getElementById('uxSettingsBtn');
     if(!settings)return;
     settings.textContent='Settings';
+    settings.classList.remove('library-nav-btn');
     settings.classList.add('mobile-utility-btn','mobile-settings-utility');
     if(settings.parentElement!==bar)bar.appendChild(settings);
   }
 
   function restoreDesktopControls(){
     const settings=document.getElementById('uxSettingsBtn');
-    const actions=document.getElementById('topbarActions');
-    const exportBtn=document.getElementById('exportBtn');
-    if(settings&&actions&&settings.parentElement!==actions)actions.insertBefore(settings,exportBtn||null);
-    settings?.classList.remove('mobile-utility-btn','mobile-settings-utility');
-
     const browse=document.getElementById('browseLibrariesUtilityBtn');
     const tabs=document.querySelector('.tabs');
+
     if(browse&&tabs){
       browse.textContent='Browse Libraries';
       browse.classList.remove('mobile-utility-btn','mobile-library-utility');
+      browse.classList.add('library-nav-btn');
       const tools=tabs.querySelector('[data-tab="tools"]');
       if(tools&&tools.nextElementSibling!==browse)tools.insertAdjacentElement('afterend',browse);
       else if(!tools&&browse.parentElement!==tabs)tabs.appendChild(browse);
+    }
+
+    if(settings&&tabs){
+      settings.textContent='Settings';
+      settings.classList.remove('mobile-utility-btn','mobile-settings-utility','ghost-btn','ux-settings-btn');
+      settings.classList.add('library-nav-btn');
+      if(browse&&browse.nextElementSibling!==settings)browse.insertAdjacentElement('afterend',settings);
+      else if(!browse&&settings.parentElement!==tabs)tabs.appendChild(settings);
     }
   }
 

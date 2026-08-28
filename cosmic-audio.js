@@ -2,14 +2,15 @@
   'use strict';
 
   const UX_KEY='riftbound-vault-ux-v1';
+  const MASTER_BOOST=3.25;
   let ctx=null,noiseBuffer=null,lastHover=0,lastClick=0,lastInput=0,lastStarfield=0,transitionLock=0;
 
-  function readUX(){try{return {intensity:'supernova',cosmicSound:false,cosmicVolume:42,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {intensity:'supernova',cosmicSound:false,cosmicVolume:42}}}
+  function readUX(){try{return {intensity:'supernova',cosmicSound:true,cosmicVolume:100,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {intensity:'supernova',cosmicSound:true,cosmicVolume:100}}}
   function active(){const s=readUX();return document.body?.dataset?.vaultTheme==='cosmic'&&s.intensity!=='neon'&&!!s.cosmicSound}
-  function volume(){return Math.max(0,Math.min(1,Number(readUX().cosmicVolume??42)/100))}
+  function volume(){return 1}
   function audio(){ctx||=new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')ctx.resume();return ctx}
 
-  function output(c,scale=1){const g=c.createGain();g.gain.value=Math.max(.0001,volume()*scale);g.connect(c.destination);return g}
+  function output(c,scale=1){const g=c.createGain();g.gain.value=Math.max(.0001,volume()*scale*MASTER_BOOST);g.connect(c.destination);return g}
   function panner(c,value=0){if(!c.createStereoPanner)return null;const p=c.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,value));return p}
 
   function tone({c,start=0,f=440,to=null,dur=.12,type='sine',gain=.025,pan=0,attack=.008,filter=0,q=.7,echo=0}){

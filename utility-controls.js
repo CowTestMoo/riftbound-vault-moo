@@ -3,18 +3,34 @@
 
   function signedIn(){return !!window.RiftboundCloud?.getSession?.()?.user}
 
+  function ensureHeaderActions(topbar){
+    let actions=document.getElementById('topbarActions');
+    if(!actions){
+      actions=document.createElement('div');
+      actions.id='topbarActions';
+      actions.className='topbar-actions';
+      topbar.appendChild(actions);
+    }
+    const exportBtn=document.getElementById('exportBtn');
+    if(exportBtn&&exportBtn.parentElement!==actions)actions.appendChild(exportBtn);
+    return actions;
+  }
+
   function ensureControls(){
     const settings=document.getElementById('uxSettingsBtn');
     const topbar=document.querySelector('.topbar');
     const tabs=document.querySelector('.tabs');
     if(!settings||!topbar||!tabs)return;
 
-    let bar=document.getElementById('globalUtilityBar');
-    if(!bar){bar=document.createElement('div');bar.id='globalUtilityBar';bar.className='global-utility-bar';topbar.insertAdjacentElement('afterend',bar)}
-    let stack=document.getElementById('cosmicUtilityStack');
-    if(!stack){stack=document.createElement('div');stack.id='cosmicUtilityStack';stack.className='cosmic-utility-stack';bar.appendChild(stack)}
+    /* Desktop Settings belongs in the header, not in a separate row. */
+    const actions=ensureHeaderActions(topbar);
     settings.textContent='Settings';
-    if(settings.parentElement!==stack)stack.appendChild(settings);
+    if(!window.matchMedia('(max-width:700px)').matches&&settings.parentElement!==actions){
+      actions.insertBefore(settings,document.getElementById('exportBtn')||null);
+    }
+
+    /* Remove the old standalone utility row so it cannot leave an empty gap. */
+    document.getElementById('globalUtilityBar')?.remove();
 
     let browse=document.getElementById('browseLibrariesUtilityBtn');
     if(!signedIn()){
@@ -22,7 +38,12 @@
       return;
     }
     if(!browse){
-      browse=document.createElement('button');browse.id='browseLibrariesUtilityBtn';browse.className='library-nav-btn';browse.type='button';browse.textContent='Browse Libraries';browse.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.RiftboundSocial?.openBrowser?.()});
+      browse=document.createElement('button');
+      browse.id='browseLibrariesUtilityBtn';
+      browse.className='library-nav-btn';
+      browse.type='button';
+      browse.textContent='Browse Libraries';
+      browse.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.RiftboundSocial?.openBrowser?.()});
     }
     const tools=tabs.querySelector('[data-tab="tools"]');
     if(tools){if(tools.nextElementSibling!==browse)tools.insertAdjacentElement('afterend',browse)}

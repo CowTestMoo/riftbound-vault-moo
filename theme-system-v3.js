@@ -13,15 +13,22 @@
     Order:'https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/71e7d71ebadb81ccad7ca4cb8b3fb85d2f5fd4bf-744x1039.png'
   };
 
-  function readUX(){try{return {density:'normal',intensity:'supernova',background:98,sound:false,cosmicSound:false,neonSound:false,cosmicVolume:42,neonVolume:38,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {density:'normal',intensity:'supernova',background:98,sound:false,cosmicSound:false,neonSound:false,cosmicVolume:42,neonVolume:38}}}
+  function rawUX(){try{return JSON.parse(localStorage.getItem(UX_KEY)||'{}')}catch{return {}}}
+  function readUX(){try{return {density:'normal',intensity:'supernova',background:98,sound:false,cosmicSound:true,neonSound:true,cosmicVolume:42,neonVolume:38,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {density:'normal',intensity:'supernova',background:98,sound:false,cosmicSound:true,neonSound:true,cosmicVolume:42,neonVolume:38}}}
   function writeUX(patch){const next={...readUX(),...patch,sound:false};localStorage.setItem(UX_KEY,JSON.stringify(next));return next}
   function theme(s=readUX()){return s.intensity==='neon'?'neon':'cosmic'}
   function enabled(t=theme(),s=readUX()){return t==='neon'?!!s.neonSound:!!s.cosmicSound}
   function volume(t=theme(),s=readUX()){return Math.max(0,Math.min(1,Number(t==='neon'?s.neonVolume:s.cosmicVolume)/100))}
 
-  function migrate(){const s=readUX(),patch={sound:false};if(s.intensity!=='neon')patch.intensity='supernova';if(s.sound&&!s.cosmicSound&&!s.neonSound)patch.cosmicSound=true;writeUX(patch)}
+  function migrate(){
+    const raw=rawUX(),s=readUX(),patch={sound:false};
+    if(s.intensity!=='neon')patch.intensity='supernova';
+    if(raw.audioDefaultsV2!==true){patch.cosmicSound=true;patch.neonSound=true;patch.audioDefaultsV2=true}
+    writeUX(patch);
+  }
 
   function ensurePlanet(){const line=document.querySelector('.vault-title-line');if(!line||line.querySelector('.vault-planet'))return;const p=document.createElement('span');p.className='vault-planet';p.setAttribute('aria-hidden','true');line.prepend(p)}
+  function syncPlanet(t){if(t==='neon')document.querySelectorAll('.vault-planet').forEach(x=>x.remove());else ensurePlanet()}
   function cleanLegacyAudioRows(){document.getElementById('soundToggle')?.closest('.setting-row')?.remove();document.getElementById('soundVolume')?.closest('.setting-row')?.remove();document.querySelectorAll('.audio-pack-note').forEach(x=>x.remove())}
 
   function ensureThemeControls(){
@@ -32,7 +39,7 @@
     cleanLegacyAudioRows();
     if(!document.getElementById('themeAudioRow')){
       const row=document.createElement('div');row.id='themeAudioRow';row.className='setting-row';row.innerHTML='<div class="setting-copy"><strong id="themeAudioTitle">Cosmic audio</strong><small id="themeAudioHelp">Celestial chimes, starfield sweeps, and deep-space interface tones.</small></div><input id="themeAudioToggle" class="sound-toggle" type="checkbox" aria-label="Theme audio">';themeRow.insertAdjacentElement('afterend',row);
-      const vol=document.createElement('div');vol.id='themeAudioVolumeRow';vol.className='setting-row';vol.innerHTML='<div class="setting-copy"><strong id="themeAudioVolumeTitle">Cosmic volume</strong><small>Only the currently selected theme can play its sound pack.</small></div><div class="theme-audio-controls"><input id="themeAudioVolume" class="theme-audio-volume" type="range" min="0" max="100" step="1"><span id="themeAudioLevel" class="theme-audio-level"></span><button id="themeAudioTest" class="theme-audio-test" type="button">Test</button></div>';row.insertAdjacentElement('afterend',vol)
+      const vol=document.createElement('div');vol.id='themeAudioVolumeRow';vol.className='setting-row';vol.innerHTML='<div class="setting-copy"><strong id="themeAudioVolumeTitle">Cosmic volume</strong><small>Each theme remembers its own sound setting and volume.</small></div><div class="theme-audio-controls"><input id="themeAudioVolume" class="theme-audio-volume" type="range" min="0" max="100" step="1"><span id="themeAudioLevel" class="theme-audio-level"></span><button id="themeAudioTest" class="theme-audio-test" type="button">Test</button></div>';row.insertAdjacentElement('afterend',vol)
     }
     return true;
   }
@@ -49,8 +56,8 @@
   }
 
   function apply(){
-    if(!ensureThemeControls())return;ensurePlanet();organizeSettings();
-    const s=readUX(),t=theme(s),isNeon=t==='neon';document.body.dataset.vaultTheme=t;document.body.dataset.intensity=isNeon?'neon':'supernova';
+    if(!ensureThemeControls())return;organizeSettings();
+    const s=readUX(),t=theme(s),isNeon=t==='neon';document.body.dataset.vaultTheme=t;document.body.dataset.intensity=isNeon?'neon':'supernova';syncPlanet(t);
     const select=document.getElementById('intensitySelect');if(select)select.value=isNeon?'neon':'supernova';
     const settingsBtn=document.getElementById('uxSettingsBtn');if(settingsBtn)settingsBtn.textContent='Settings';
     const head=document.querySelector('#uxSettings .settings-head h3');if(head)head.textContent='Settings';
@@ -68,10 +75,9 @@
   }
 
   function switchTheme(value){
-    if(value==='neon')writeUX({intensity:'neon',cosmicSound:false,sound:false});
-    else writeUX({intensity:'supernova',neonSound:false,sound:false});
-    apply();
-    setTimeout(()=>play('switch'),25);
+    if(value==='neon')writeUX({intensity:'neon',sound:false});
+    else writeUX({intensity:'supernova',sound:false});
+    apply();setTimeout(()=>play('switch'),25);
   }
 
   function storageBoxes(){try{const s=JSON.parse(localStorage.getItem(APP_KEY)||'{}');return Array.isArray(s.storageBoxes)?s.storageBoxes:[]}catch{return []}}
@@ -81,7 +87,7 @@
   document.addEventListener('change',e=>{
     if(e.target.id==='intensitySelect'){switchTheme(e.target.value);return}
     if(e.target.id==='themeAudioToggle'){
-      const t=theme(),on=e.target.checked;writeUX(t==='neon'?{neonSound:on,cosmicSound:false,sound:false}:{cosmicSound:on,neonSound:false,sound:false});apply();
+      const t=theme(),on=e.target.checked;writeUX(t==='neon'?{neonSound:on,sound:false}:{cosmicSound:on,sound:false});apply();
       if(on)setTimeout(()=>play('switch'),25);
     }
   },true);
@@ -90,7 +96,7 @@
 
   document.addEventListener('click',e=>{
     if(e.target.closest('#themeAudioTest')){
-      const t=theme();writeUX(t==='neon'?{neonSound:true,cosmicSound:false,sound:false}:{cosmicSound:true,neonSound:false,sound:false});apply();setTimeout(()=>play('success'),25);return;
+      const t=theme();writeUX(t==='neon'?{neonSound:true,sound:false}:{cosmicSound:true,sound:false});apply();setTimeout(()=>play('success'),25);return;
     }
     if(e.target.closest('[data-tab="storage"],#customizeStorageBtn,#saveStorageBoxes'))setTimeout(decorateStorage,60);
   },true);

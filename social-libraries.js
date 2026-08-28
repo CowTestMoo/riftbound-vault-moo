@@ -5,7 +5,8 @@
   const SUPABASE_PUBLISHABLE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
   const APP_KEY='riftbound-vault-v2';
   const BROWSE_CACHE_MS=2*60*1000;
-  const USERNAME_COLORS=['cyan','blue','purple','pink','red','orange','gold','green','white'];
+  const USERNAME_COLORS=['cyan','blue','purple','pink','red','orange','gold','green','white','teal','mint','lime','yellow','amber','coral','rose','magenta','violet','indigo','sky','aqua','emerald','lavender','silver'];
+  const COLOR_LABELS={sky:'Sky Blue'};
   let profile=null,publishing=false,publishTimer=0,profiles=[],libraries=new Map(),selectedId='',friendTab='collection',query='';
   let typeFilters=[],domainFilters=[],setFilters=[];
   let catalogRef=null,catalogMap=new Map(),profileLoadPromise=null,lastPublishedHash='',lastBrowseLoadedAt=0;
@@ -16,6 +17,7 @@
   const readState=()=>{try{return JSON.parse(localStorage.getItem(APP_KEY)||'{}')}catch{return {}}};
   const nameOf=c=>c?.fullName||c?.name||c?.cardCode||'Unknown card';
   const safeColor=value=>USERNAME_COLORS.includes(value)?value:'cyan';
+  const colorLabel=color=>COLOR_LABELS[color]||color[0].toUpperCase()+color.slice(1);
   function byCode(){const c=catalog();if(c!==catalogRef){catalogRef=c;catalogMap=new Map(c.map(x=>[x.cardCode,x]))}return catalogMap}
   function hash(value){let h=2166136261,s=JSON.stringify(value);for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(36)}
 
@@ -28,7 +30,7 @@
   }
 
   function usernameHtml(username,color,{id='',className=''}={}){
-    return `<span${id?` id="${id}"`:''} class="username-styled animated-username ${className}" data-username-color="${safeColor(color)}">@${esc(username)}</span>`;
+    return `<span${id?` id="${id}"`:''} class="username-styled ${className}" data-username-color="${safeColor(color)}">${esc(username)}</span>`;
   }
   function renderAccount(){
     const top=document.querySelector('.topbar');if(!top)return;let area=document.getElementById('socialAccountArea');
@@ -42,7 +44,7 @@
   function ensureUsernameDialog(){
     if(document.getElementById('usernameSetupDialog'))return;
     const d=document.createElement('dialog');d.id='usernameSetupDialog';d.className='modal username-setup-dialog';
-    d.innerHTML=`<div class="modal-inner username-setup-inner"><div class="username-mark">@</div><h2>Choose your username</h2><p>Create a unique username so friends can find your library. You will still sign in with email and password.</p><label>Username<div class="username-input-wrap"><span>@</span><input id="usernameInput" maxlength="24" autocomplete="off" placeholder="riftbound_friend"></div></label><small class="username-rules">3 to 24 characters. Letters, numbers, and underscores only.</small><div id="usernameMessage" class="feature-message"></div><button id="saveUsernameBtn" class="primary-btn" type="button">Continue</button></div>`;
+    d.innerHTML=`<div class="modal-inner username-setup-inner"><div class="username-mark">ID</div><h2>Choose your username</h2><p>Create a unique username so friends can find your library. You will still sign in with email and password.</p><label>Username<div class="username-input-wrap"><input id="usernameInput" maxlength="24" autocomplete="off" placeholder="riftbound_friend"></div></label><small class="username-rules">3 to 24 characters. Letters, numbers, and underscores only.</small><div id="usernameMessage" class="feature-message"></div><button id="saveUsernameBtn" class="primary-btn" type="button">Continue</button></div>`;
     d.addEventListener('cancel',event=>{if(!profile)event.preventDefault()});
     d.addEventListener('close',()=>{if(session()?.user&&!profile)setTimeout(showUsername,0)});
     document.body.appendChild(d);
@@ -54,7 +56,7 @@
     let row=document.getElementById('usernameColorSetting');
     if(!row){
       row=document.createElement('div');row.id='usernameColorSetting';row.className='setting-row username-color-setting';
-      row.innerHTML=`<div class="setting-copy"><strong>Username color</strong><small>Choose how your animated username appears to other users.</small></div><select id="usernameColorSelect" aria-label="Username color">${USERNAME_COLORS.map(color=>`<option value="${color}">${color[0].toUpperCase()+color.slice(1)}</option>`).join('')}</select>`;
+      row.innerHTML=`<div class="setting-copy"><strong>Username color</strong><small>Choose the font color other users see for your username.</small></div><select id="usernameColorSelect" aria-label="Username color">${USERNAME_COLORS.map(color=>`<option value="${color}">${colorLabel(color)}</option>`).join('')}</select>`;
       panel.appendChild(row);
     }
     document.getElementById('usernameColorSelect').value=safeColor(profile.username_color);
@@ -154,7 +156,7 @@
   function selectedLibrary(){const selectedProfile=profiles.find(x=>x.user_id===selectedId),library=libraries.get(selectedId);return selectedProfile&&library?{profile:selectedProfile,library}:null}
   function renderPublicDecks(profileRow,lib){
     const root=document.getElementById('friendDeckList'),decks=Array.isArray(lib.decks)?lib.decks:[];
-    root.innerHTML=decks.length?decks.map((deck,index)=>{const total=Object.values(deck.cards||{}).reduce((sum,qty)=>sum+Number(qty||0),0);return `<article class="public-deck-row"><div><button type="button" class="public-deck-name" data-public-deck-index="${index}">${esc(deck.name||'Untitled Deck')}</button><p>${total} cards${deck.champion?` · ${esc(deck.champion)}`:''}</p></div><button class="ghost-btn" type="button" data-public-deck-index="${index}">View Deck</button></article>`}).join(''):`<div class="empty-state">@${esc(profileRow.username)} has not shared any decks yet.</div>`;
+    root.innerHTML=decks.length?decks.map((deck,index)=>{const total=Object.values(deck.cards||{}).reduce((sum,qty)=>sum+Number(qty||0),0);return `<article class="public-deck-row"><div><button type="button" class="public-deck-name" data-public-deck-index="${index}">${esc(deck.name||'Untitled Deck')}</button><p>${total} cards${deck.champion?` · ${esc(deck.champion)}`:''}</p></div><button class="ghost-btn" type="button" data-public-deck-index="${index}">View Deck</button></article>`}).join(''):`<div class="empty-state">${esc(profileRow.username)} does not have any decks yet.</div>`;
   }
   function renderFriend(){
     const profileRow=profiles.find(x=>x.user_id===selectedId),lib=libraries.get(selectedId),body=document.getElementById('friendLibraryBody'),chooser=document.getElementById('friendChooser'),grid=document.getElementById('friendGrid'),deckList=document.getElementById('friendDeckList'),filterPanel=document.getElementById('friendFilters');
@@ -196,8 +198,8 @@
       if(target=event.target.closest('[data-friend-user]'))return chooseUser(target.dataset.friendUser);
       if(target=event.target.closest('[data-friend-tab]')){friendTab=target.dataset.friendTab;resetFriendFilters();return renderFriend()}
       if(target=event.target.closest('[data-friend-filter]'))return toggleFriendFilter(target.dataset.friendFilter,target.dataset.value);
-      if(target=event.target.closest('[data-public-deck-index]')){const selected=selectedLibrary(),deck=selected?.library?.decks?.[Number(target.dataset.publicDeckIndex)];if(deck)window.RiftboundDeckViewer?.open?.({deck,owner:`@${selected.profile.username}`,readOnly:true});return}
-      if(target=event.target.closest('[data-public-card]')){const selected=selectedLibrary();window.RiftboundDeckViewer?.openCard?.(target.dataset.publicCard,{owner:`@${selected?.profile?.username||''}`,quantity:Number(selected?.library?.cards?.[target.dataset.publicCard]||1)});return}
+      if(target=event.target.closest('[data-public-deck-index]')){const selected=selectedLibrary(),deck=selected?.library?.decks?.[Number(target.dataset.publicDeckIndex)];if(deck)window.RiftboundDeckViewer?.open?.({deck,owner:selected.profile.username,readOnly:true});return}
+      if(target=event.target.closest('[data-public-card]')){const selected=selectedLibrary();window.RiftboundDeckViewer?.openCard?.(target.dataset.publicCard,{owner:selected?.profile?.username||'',quantity:Number(selected?.library?.cards?.[target.dataset.publicCard]||1)});return}
     },true);
     document.addEventListener('input',event=>{if(event.target.id==='friendUserSearch')renderUsers(event.target.value);if(event.target.id==='friendCardSearch'){query=event.target.value;renderFriend()}});
     document.addEventListener('change',event=>{if(event.target.id==='usernameColorSelect')saveUsernameColor(event.target.value)});

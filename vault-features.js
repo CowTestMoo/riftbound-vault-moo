@@ -31,9 +31,11 @@
   function price(code,s=readState()){return Math.max(0,Number(s.prices?.[code]?.market||0))}
   function money(n){return Number(n||0).toLocaleString(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2})}
 
-  async function ensureCatalog(){
-    if(window.RiftboundApp?.getCatalog){const c=window.RiftboundApp.getCatalog();if(c?.length){catalog=c;byCode=new Map(c.map(x=>[x.cardCode,x]));return}}
-    try{const r=await fetch('./data/cards.json',{cache:'force-cache'}),raw=await r.json();catalog=(Array.isArray(raw)?raw:(raw.cards||[])).map((c,i)=>({...c,cardCode:String(c.cardCode||c.code||c.id||`card-${i}`),cardSet:c.cardSet||c.setName||c.setCode||'Unknown',imageUrl:c.imageUrl||c.image_url||''}));byCode=new Map(catalog.map(c=>[c.cardCode,c]))}catch{}
+  function useCatalog(cards){catalog=cards;byCode=new Map(cards.map(x=>[x.cardCode,x]))}
+  function ensureCatalog(){
+    const shared=window.RiftboundApp?.getCatalog?.()||[];
+    if(shared.length){useCatalog(shared);return Promise.resolve()}
+    return new Promise(resolve=>window.addEventListener('riftbound-catalog-ready',event=>{useCatalog(event.detail?.catalog||[]);resolve()},{once:true}));
   }
   function searchCards(q,{ownedOnly=false,limit=30}={}){
     const s=readState(),needle=norm(q).trim();

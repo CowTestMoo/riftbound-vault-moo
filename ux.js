@@ -15,6 +15,7 @@
   let stateCache=null;
   let refreshFrame=0;
   const pendingRefreshScopes=new Set();
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function loadSettings(){
     try{return {density:'normal',intensity:'cosmic',background:98,sound:false,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')};}
@@ -47,18 +48,19 @@
     return{box,domain,bucket:isUnit?'Units':'Other',section};
   }
 
-  async function loadCatalog(){
-    try{
-      const r=await fetch('./data/cards.json',{cache:'force-cache'});
-      if(!r.ok)return;
-      const raw=await r.json();
-      catalog=(Array.isArray(raw)?raw:(raw.cards||[])).map((c,i)=>({...c,cardCode:String(c.cardCode||c.code||c.id||`card-${i}`),cardSet:c.cardSet||c.setName||c.setCode||'Unknown',imageUrl:c.imageUrl||c.image_url||''}));
-      catalogByCode=new Map(catalog.map(c=>[c.cardCode,c]));
-      invalidateState();
-      renderDashboard();
-      decorateAll();
-      updateFooter();
-    }catch(err){console.debug('UX catalog layer skipped',err);}
+  function useCatalog(cards){
+    if(!Array.isArray(cards)||!cards.length)return;
+    catalog=cards;
+    catalogByCode=new Map(catalog.map(c=>[c.cardCode,c]));
+    invalidateState();
+    renderDashboard();
+    decorateAll();
+    updateFooter();
+  }
+  function connectCatalog(){
+    const shared=window.RiftboundApp?.getCatalog?.()||[];
+    if(shared.length){useCatalog(shared);return;}
+    window.addEventListener('riftbound-catalog-ready',event=>useCatalog(event.detail?.catalog||[]),{once:true});
   }
 
   function ensureStructure(){
@@ -108,7 +110,29 @@
     const visible=document.querySelectorAll('#cardGrid .card-tile').length;
     return {label:active.length?active.join(' • '):'All cards',visible};
   }
-  function updateFilterSummary(){const el=document.querySelector('#filterSummary .filter-summary-text');if(!el)return;const x=activeFilterText();el.innerHTML=`<strong>${x.label}</strong> <span>• ${x.visible.toLocaleString()} shown</span>`;}
+  function updateFilterSummary(){
+    const el=document.querySelector('#filterSummary .filter-summary-text');if(!el)return;
+    const x=activeFilterText(),strong=document.createElement('strong'),count=document.createElement('span');
+    strong.textContent=x.label;count.textContent=` • ${x.visible.toLocaleString()} shown`;
+    el.replaceChildren(strong,count);
+  }
+
+  function hardenSearchInputs(root=document){
+    root.querySelectorAll?.('input[type="search"],input[placeholder^="Search"],#cardSearch').forEach(input=>{
+      input.type='search';
+      if(!input.name)input.name=`riftbound-${input.id||'card-search'}`;
+      input.setAttribute('autocomplete','off');
+      input.setAttribute('autocapitalize','none');
+      input.setAttribute('autocorrect','off');
+      input.setAttribute('spellcheck','false');
+      input.setAttribute('inputmode','search');
+      input.setAttribute('enterkeyhint','search');
+      input.setAttribute('role','searchbox');
+      input.setAttribute('data-form-type','other');
+      input.setAttribute('data-1p-ignore','true');
+      input.setAttribute('data-lpignore','true');
+    });
+  }
 
   function clearFilters(){
     document.getElementById('cardSearch')?.focus();
@@ -151,8 +175,8 @@
   function renderDashboard(){
     const root=document.getElementById('collectionDashboard');if(!root||!catalog.length)return;
     const recents=recentTransactions();const progress=setProgressData();
-    const recentHtml=recents.length?recents.map(t=>{const c=catalogByCode.get(t.cardCode);return `<button class="recent-card" type="button" data-recent-card="${t.cardCode}">${c?.imageUrl?`<img src="${c.imageUrl}" alt="">`:''}<span><strong>${nameOf(c||{cardCode:t.cardCode})}</strong><small>+${t.delta} added</small></span></button>`;}).join(''):'<div class="recent-empty">Cards you add will appear here.</div>';
-    const progressHtml=progress.slice(0,12).map(x=>{const pct=x.total?Math.round(x.owned/x.total*100):0;return `<button class="set-progress ${pct===100?'complete':''}" type="button" data-set-filter="${String(x.set).replace(/"/g,'&quot;')}"><div class="set-progress-top"><strong>${x.set}</strong><span>${x.owned}/${x.total}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></button>`;}).join('');
+    const recentHtml=recents.length?recents.map(t=>{const c=catalogByCode.get(t.cardCode);return `<button class="recent-card" type="button" data-recent-card="${esc(t.cardCode)}">${c?.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}<span><strong>${esc(nameOf(c||{cardCode:t.cardCode}))}</strong><small>+${Number(t.delta)||0} added</small></span></button>`;}).join(''):'<div class="recent-empty">Cards you add will appear here.</div>';
+    const progressHtml=progress.slice(0,12).map(x=>{const pct=x.total?Math.round(x.owned/x.total*100):0;return `<button class="set-progress ${pct===100?'complete':''}" type="button" data-set-filter="${esc(x.set)}"><div class="set-progress-top"><strong>${esc(x.set)}</strong><span>${x.owned}/${x.total}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></button>`;}).join('');
     root.innerHTML=`<section class="recent-panel"><div class="dashboard-head"><h3>Recently Added</h3><small>Your latest collection updates</small></div><div class="recent-strip">${recentHtml}</div></section><section class="set-progress-panel"><div class="dashboard-head"><h3>Set Completion</h3><small>Unique cards owned</small></div><div class="set-progress-grid">${progressHtml}</div></section>`;
     detectNewCompletions(progress);
   }
@@ -196,7 +220,7 @@
 
   function updateFooter(){const f=document.getElementById('footerCards');if(f&&catalog.length)f.textContent=`${catalog.length.toLocaleString()} catalog cards`;const u=document.getElementById('footerUpdated');if(u)u.textContent='Daily catalog sync enabled';}
 
-  function decorateAll(){decorateDomains();decorateRarity();decorateImages();updateFilterSummary();improveQuantityDialog();syncMobileNav();}
+  function decorateAll(){hardenSearchInputs();decorateDomains();decorateRarity();decorateImages();updateFilterSummary();improveQuantityDialog();syncMobileNav();}
 
   function scheduleUiRefresh(scopes=[]){
     for(const scope of scopes)pendingRefreshScopes.add(scope);
@@ -207,7 +231,7 @@
       if(s.has('state')||s.has('stats'))invalidateState();
       if(s.has('cards')){
         const grid=document.getElementById('cardGrid');if(grid){grid.classList.add('ux-filtering');setTimeout(()=>grid.classList.remove('ux-filtering'),120)}
-        decorateRarity();decorateImages();updateFilterSummary();
+        hardenSearchInputs();decorateRarity();decorateImages();updateFilterSummary();
       }
       if(s.has('filters')){decorateDomains();updateFilterSummary()}
       if(s.has('storage'))decorateDomains();
@@ -233,6 +257,7 @@
     if(event.target.id==='soundToggle'){settings.sound=event.target.checked;saveSettings();if(settings.sound)playTone('add');}
   });
   document.addEventListener('input',event=>{if(event.target.id==='backgroundRange'){settings.background=Number(event.target.value);saveSettings();applySettings();}});
+  document.addEventListener('focusin',event=>{if(event.target.matches?.('input[type="search"],input[placeholder^="Search"],#cardSearch'))hardenSearchInputs(event.target.parentElement||document);},true);
 
   document.addEventListener('mouseover',event=>{const tile=event.target.closest('.card-tile[data-card]');if(tile&&!tile.contains(event.relatedTarget))showQuick(tile,event);});
   document.addEventListener('mousemove',event=>{if(currentHover)positionQuick(event);},{passive:true});
@@ -257,7 +282,7 @@
 
   function init(){
     ensureStructure();applySettings();decorateAll();
-    loadCatalog();
+    connectCatalog();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

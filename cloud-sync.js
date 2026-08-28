@@ -2,7 +2,7 @@
   'use strict';
 
   const SUPABASE_URL='https://ivqtgclygiikagfuicjd.supabase.co';
-  const SUPABASE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
+  const SUPABASE_PUBLISHABLE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
   const APP_KEY='riftbound-vault-v2';
   const UX_KEY='riftbound-vault-ux-v1';
   const AUTH_KEY='riftbound-vault-auth-v1';
@@ -33,7 +33,7 @@
   };
 
   async function request(path,{method='GET',body,token,headers={}}={}){
-    const res=await fetch(SUPABASE_URL+path,{method,headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{}) ,...headers},body:body===undefined?undefined:JSON.stringify(body)});
+    const res=await fetch(SUPABASE_URL+path,{method,headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{}) ,...headers},body:body===undefined?undefined:JSON.stringify(body)});
     let data=null;try{data=await res.json()}catch{}
     if(!res.ok)throw new Error(data?.msg||data?.message||data?.error_description||data?.error||`HTTP ${res.status}`);
     return data;
@@ -56,7 +56,7 @@
   function showPasswordSetup(type='invite'){
     let d=document.getElementById('cloudPasswordSetupDialog');if(!d){d=document.createElement('dialog');d.id='cloudPasswordSetupDialog';d.className='modal cloud-auth-dialog';document.body.appendChild(d)}
     const title=type==='recovery'?'Choose a new password':'Welcome to Riftbound Vault';
-    d.innerHTML=`<div class="modal-inner cloud-auth-inner"><div class="modal-head"><h2>${title}</h2></div><p class="cloud-help">This vault is invite-only. Set a password to finish activating your account.</p><label>New password<input id="cloudNewPassword" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters"></label><label>Confirm password<input id="cloudConfirmPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Repeat password"></label><div id="cloudPasswordMessage" class="cloud-auth-message"></div><div class="modal-actions"><button id="cloudSetPassword" class="primary-btn" type="button">Activate Account</button></div></div>`;d.showModal();
+    d.innerHTML=`<div class="modal-inner cloud-auth-inner"><div class="modal-head"><h2>${title}</h2></div><p class="cloud-help">This vault is invite-only. Set a password to finish activating your account.</p><label>New password<input id="cloudNewPassword" name="new-password" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters"></label><label>Confirm password<input id="cloudConfirmPassword" name="confirm-password" type="password" autocomplete="new-password" minlength="8" placeholder="Repeat password"></label><div id="cloudPasswordMessage" class="cloud-auth-message"></div><div class="modal-actions"><button id="cloudSetPassword" class="primary-btn" type="button">Activate Account</button></div></div>`;d.showModal();
   }
   async function setInvitedPassword(password){const s=await freshSession();if(!s)throw new Error('Invite session expired. Ask for a new invitation.');await request('/auth/v1/user',{method:'PUT',token:s.access_token,body:{password}});const user=await request('/auth/v1/user',{token:s.access_token});session.user=user;saveSession(session);await reconcileAfterLogin(true)}
 
@@ -94,7 +94,7 @@
     await reconcileAfterLogin(force);
   }
 
-  function ensureAuthDialog(){if(document.getElementById('cloudAuthDialog'))return;const d=document.createElement('dialog');d.id='cloudAuthDialog';d.className='modal cloud-auth-dialog';d.innerHTML=`<div class="modal-inner cloud-auth-inner"><div class="modal-head"><h2>Riftbound Cloud</h2><button class="close-btn" data-cloud-close>×</button></div><p class="cloud-help"><strong>Invite only.</strong> Sign in with an account that has been invited by the vault owner.</p><label>Email<input id="cloudEmail" type="email" autocomplete="email" placeholder="you@example.com"></label><label>Password<input id="cloudPassword" type="password" autocomplete="current-password" minlength="8" placeholder="Password"></label><div id="cloudAuthMessage" class="cloud-auth-message"></div><div class="modal-actions"><button id="cloudSignIn" class="primary-btn" type="button">Sign In</button></div><p class="cloud-invite-note">Need access? Ask the vault owner to send you an invitation.</p></div>`;document.body.appendChild(d)}
+  function ensureAuthDialog(){if(document.getElementById('cloudAuthDialog'))return;const d=document.createElement('dialog');d.id='cloudAuthDialog';d.className='modal cloud-auth-dialog';d.setAttribute('data-form-type','login');d.innerHTML=`<div class="modal-inner cloud-auth-inner"><div class="modal-head"><h2>Riftbound Cloud</h2><button class="close-btn" data-cloud-close>×</button></div><p class="cloud-help"><strong>Invite only.</strong> Sign in with an account that has been invited by the vault owner.</p><label>Email<input id="cloudEmail" name="email" type="email" autocomplete="username" inputmode="email" placeholder="you@example.com"></label><label>Password<input id="cloudPassword" name="password" type="password" autocomplete="current-password" minlength="8" placeholder="Password"></label><div id="cloudAuthMessage" class="cloud-auth-message"></div><div class="modal-actions"><button id="cloudSignIn" class="primary-btn" type="button">Sign In</button></div><p class="cloud-invite-note">Need access? Ask the vault owner to send you an invitation.</p></div>`;document.body.appendChild(d)}
   function ensureCloudSettings(){const panel=document.getElementById('uxSettings');if(!panel||document.getElementById('cloudSettingRow'))return;const row=document.createElement('div');row.id='cloudSettingRow';row.className='setting-row cloud-setting-row';row.innerHTML=`<div class="setting-copy"><strong>Cloud sync</strong><small id="cloudSettingText">Invite-only • Local only</small></div><div class="cloud-setting-actions"><button id="cloudAccountBtn" class="sound-test" type="button">Sign In</button></div>`;panel.appendChild(row);renderCloudUI()}
   function renderCloudUI(){ensureAuthDialog();const signed=!!session?.user,account=document.getElementById('cloudAccountBtn'),text=document.getElementById('cloudSettingText');if(account)account.textContent=signed?'Account':'Sign In';if(text)text.textContent=signed?`${session.user.email||'Signed in'} • Event-driven sync • ${document.getElementById('cloudSyncStatus')?.textContent||'Ready'}`:'Invite-only • Local only'}
   function ensureStatus(){if(document.getElementById('cloudSyncStatus'))return;const p=document.getElementById('catalogStatus');if(!p)return;const s=document.createElement('span');s.id='cloudSyncStatus';s.className='cloud-sync-status';s.textContent=session?'Cloud ready':'Invite only';p.insertAdjacentElement('afterend',s)}

@@ -2,7 +2,7 @@
   'use strict';
 
   const UX_KEY='riftbound-vault-ux-v1';
-  const MASTER_BOOST=3.25;
+  const MASTER_BOOST=6.5;
   let ctx=null,noiseBuffer=null,lastHover=0,lastClick=0,lastInput=0,transitionLock=0;
 
   function readUX(){try{return {intensity:'supernova',neonSound:true,neonVolume:100,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {intensity:'supernova',neonSound:true,neonVolume:100}}}

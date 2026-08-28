@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const SUPABASE_URL='https://ivqtgclygiikagfuicjd.supabase.co';
-  const SUPABASE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
+  const SUPABASE_PUBLISHABLE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
   const PREF_KEY='riftbound-scanner-v2';
   let busy=false,lastResult=null,lastMatches=[];
   let prefs=readPrefs();
@@ -107,7 +107,7 @@
     busy=true;show(`${sessionBar()}${modeControls()}<div class="scanner-ai-loading"><span></span><strong>Reading card…</strong><small>Identifying name, set, and card number</small></div>`,'loading');
     try{
       const image=await resizeFile(file);
-      const res=await fetch(`${SUPABASE_URL}/functions/v1/scan-card`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${s.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({image})});
+      const res=await fetch(`${SUPABASE_URL}/functions/v1/scan-card`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${s.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({image})});
       let data={};try{data=await res.json()}catch{}
       if(!res.ok){
         if(data?.code==='OPENAI_API_KEY_MISSING')show(`${sessionBar()}${modeControls()}<div class="scanner-ai-setup"><strong>AI Scanner is installed, but its vision key is not activated yet.</strong><small>Add the OPENAI_API_KEY secret in Supabase to turn on automatic recognition. Manual card search still works below.</small></div>`,'setup');

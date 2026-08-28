@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="styles.css?v=asol2">
   <link rel="stylesheet" href="polish.css?v=asol4">
   <link rel="stylesheet" href="cosmic-cleanup.css?v=cosmic5">
-  <link rel="stylesheet" href="ux.css?v=ux2">
+  <link rel="stylesheet" href="ux.css?v=ux3">
   <link rel="stylesheet" href="vault-features.css?v=core1">
   <link rel="stylesheet" href="premade-decks.css?v=3">
   <link rel="stylesheet" href="invite-lock.css?v=2">
@@ -57,7 +57,7 @@
     <main>
       <section id="cardsView" class="view active">
         <div class="toolbar">
-          <div class="search-wrap"><span>⌕</span><input id="cardSearch" type="search" placeholder="Search name, set, or card number"></div>
+          <form id="cardSearchForm" class="search-wrap" role="search" autocomplete="off"><span aria-hidden="true">⌕</span><input id="cardSearch" type="search" name="riftbound-card-search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" role="searchbox" aria-label="Search Riftbound cards" data-form-type="other" data-1p-ignore="true" data-lpignore="true" placeholder="Search name, set, or card number"></form>
           <button id="bulkAddBtn" class="primary-btn">Bulk Add</button>
         </div>
         <div id="typeFilters" class="filter-row"></div>
@@ -96,29 +96,29 @@
   <dialog id="loanDialog" class="modal"></dialog>
   <dialog id="storageDialog" class="modal"></dialog>
   <script src="theme-bootstrap.js?v=2"></script>
-  <script src="theme-loader.js?v=1"></script>
-  <script src="polish.js?v=asol4"></script>
-  <script src="ux.js?v=ux2"></script>
+  <script src="theme-loader.js?v=2"></script>
+  <script src="polish.js?v=asol5"></script>
+  <script src="ux.js?v=ux3"></script>
   <script src="dashboard-toggles.js?v=2"></script>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
   <script src="app-bridge.js?v=core1"></script>
   <script src="storage-customizer.js?v=1"></script>
   <script src="auth-session-pref.js?v=1"></script>
-  <script src="cloud-sync.js?v=4"></script>
+  <script src="cloud-sync.js?v=5"></script>
   <script src="invite-lock.js?v=4"></script>
-  <script src="vault-features.js?v=core2"></script>
+  <script src="vault-features.js?v=core3"></script>
   <script src="premade-decks.js?v=2"></script>
   <script src="spreadsheet-import.js?v=5"></script>
   <script src="smart-import-badges.js?v=1"></script>
   <script src="export-enhancer.js?v=1"></script>
-  <script src="social-libraries.js?v=6"></script>
+  <script src="social-libraries.js?v=7"></script>
   <script src="utility-controls.js?v=6"></script>
   <script src="theme-system-v3.js?v=4"></script>
   <script src="profile-switching.js?v=3"></script>
   <script src="friend-library-extras.js?v=3"></script>
   <script src="mobile-ui.js?v=5"></script>
   <script src="live-values.js?v=2"></script>
-  <script src="scanner-ai.js?v=3"></script>
+  <script src="scanner-ai.js?v=4"></script>
   <script src="mobile-experience.js?v=1"></script>
   <script src="vault-compare.js?v=1"></script>
 </body>

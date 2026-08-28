@@ -4,7 +4,7 @@
   const UX_KEY='riftbound-vault-ux-v1';
   const ASSETS={
     cosmic:{styles:['cosmic-effects.css?v=cosmic8'],scripts:['cosmic.js?v=cosmic8','cosmic-audio.js?v=4']},
-    neon:{styles:['neon-background.css?v=3'],scripts:['neon-background-v2.js?v=2','neon-audio.js?v=3','neon-effects.js?v=2']}
+    neon:{styles:['neon-background.css?v=3'],scripts:['neon-background-v2.js?v=2','neon-audio.js?v=4','neon-effects.js?v=2']}
   };
   let loadedTheme='';
   let loading=null;

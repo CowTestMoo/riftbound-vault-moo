@@ -20,20 +20,19 @@
     return r;
   }
 
-  async function loadRarities(){
-    try{
-      const response = await fetch('./data/cards.json',{cache:'force-cache'});
-      if(!response.ok) return;
-      const raw = await response.json();
-      const cards = Array.isArray(raw) ? raw : (raw.cards || []);
-      for(const card of cards){
-        const code = String(card.cardCode || card.code || card.id || '');
-        if(code) rarityMap.set(code,rarityClass(card.rarity));
-      }
-      decorateCards(document);
-    }catch(err){
-      console.debug('Celestial rarity decoration skipped',err);
+  function useCatalog(cards){
+    if(!Array.isArray(cards)||!cards.length)return;
+    for(const card of cards){
+      const code=String(card.cardCode||card.code||card.id||'');
+      if(code)rarityMap.set(code,rarityClass(card.rarity));
     }
+    decorateCards(document);
+  }
+
+  function connectCatalog(){
+    const shared=window.RiftboundApp?.getCatalog?.()||[];
+    if(shared.length){useCatalog(shared);return;}
+    window.addEventListener('riftbound-catalog-ready',event=>useCatalog(event.detail?.catalog||[]),{once:true});
   }
 
   function decorateCards(root=document){
@@ -133,5 +132,5 @@
   celestialEmptyStates(document);
   updateLoadingState();
   animateStatChanges();
-  loadRarities();
+  connectCatalog();
 })();

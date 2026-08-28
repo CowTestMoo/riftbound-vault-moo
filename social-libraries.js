@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const SUPABASE_URL='https://ivqtgclygiikagfuicjd.supabase.co';
-  const SUPABASE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
+  const SUPABASE_PUBLISHABLE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
   const APP_KEY='riftbound-vault-v2';
   const BROWSE_CACHE_MS=2*60*1000;
   let profile=null,publishing=false,publishTimer=0,profiles=[],libraries=new Map(),selectedId='',friendTab='collection',query='',typeFilter='All',domainFilter='All',setFilter='All';
@@ -17,7 +17,7 @@
 
   async function api(path,{method='GET',body,prefer}={}){
     const s=session();if(!s?.access_token)throw new Error('Sign in to browse libraries.');
-    const headers={apikey:SUPABASE_KEY,Authorization:`Bearer ${s.access_token}`,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})};
+    const headers={apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${s.access_token}`,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})};
     const res=await fetch(SUPABASE_URL+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
     let data=null;try{data=await res.json()}catch{}
     if(!res.ok){const e=new Error(data?.message||data?.error_description||data?.details||`HTTP ${res.status}`);e.status=res.status;throw e}return data;
@@ -62,7 +62,7 @@
   function closeBrowser(){document.getElementById('friendLibraryScreen').hidden=true;document.body.classList.remove('friend-library-open')}
   function browseAnother(){selectedId='';document.getElementById('friendChooser').hidden=false;document.getElementById('friendLibraryBody').hidden=true;document.getElementById('friendName').textContent='Browse Libraries';renderUsers(document.getElementById('friendUserSearch')?.value||'')}
 
-  function bind(){document.addEventListener('click',e=>{let x;if(e.target.closest('#saveUsernameBtn'))return saveUsername();if(e.target.closest('#browseLibrariesUtilityBtn'))return openBrowser();if(e.target.closest('#friendBackBtn'))return closeBrowser();if(e.target.closest('#friendBrowseAnother'))return browseAnother();if(x=e.target.closest('[data-friend-user]'))return chooseUser(x.dataset.friendUser);if(x=e.target.closest('[data-friend-tab]')){friendTab=x.dataset.friendTab;query='';typeFilter=domainFilter=setFilter='All';const q=document.getElementById('friendCardSearch');if(q)q.value='';return renderFriend()}if(x=e.target.closest('[data-friend-filter]')){const k=x.dataset.friendFilter,v=x.dataset.value;if(k==='type')typeFilter=v;else if(k==='domain')domainFilter=v;else setFilter=v;return renderFriend()}},true);document.addEventListener('input',e=>{if(e.target.id==='friendUserSearch')renderUsers(e.target.value);if(e.target.id==='friendCardSearch'){query=e.target.value;renderFriend()}});window.addEventListener('riftbound-local-change',e=>{if(e.detail?.key===APP_KEY)schedulePublish()});window.addEventListener('riftbound-cloud-restored',()=>schedulePublish(900));window.addEventListener('riftbound-auth-storage-change',()=>{profile=null;lastPublishedHash='';lastBrowseLoadedAt=0;setTimeout(()=>loadOwnProfile(true).catch(console.error),80)})}
+  function bind(){document.addEventListener('click',e=>{let x;if(e.target.closest('#saveUsernameBtn'))return saveUsername();if(e.target.closest('#browseLibrariesUtilityBtn'))return openBrowser();if(e.target.closest('#friendBackBtn'))return closeBrowser();if(e.target.closest('#friendBrowseAnother'))return browseAnother();if(x=e.target.closest('[data-friend-user]'))return chooseUser(x.dataset.friendUser);if(x=e.target.closest('[data-friend-tab]')){friendTab=x.dataset.friendTab;query='';typeFilter=domainFilter=setFilter='All';const q=document.getElementById('friendCardSearch');if(q)q.value='';return renderFriend()}if(x=e.target.closest('[data-friend-filter]')){const k=x.dataset.friendFilter,v=x.dataset.value,current=k==='type'?typeFilter:k==='domain'?domainFilter:setFilter,next=v!=='All'&&current===v?'All':v;if(k==='type')typeFilter=next;else if(k==='domain')domainFilter=next;else setFilter=next;return renderFriend()}},true);document.addEventListener('input',e=>{if(e.target.id==='friendUserSearch')renderUsers(e.target.value);if(e.target.id==='friendCardSearch'){query=e.target.value;renderFriend()}});window.addEventListener('riftbound-local-change',e=>{if(e.detail?.key===APP_KEY)schedulePublish()});window.addEventListener('riftbound-cloud-restored',()=>schedulePublish(900));window.addEventListener('riftbound-auth-storage-change',()=>{profile=null;lastPublishedHash='';lastBrowseLoadedAt=0;setTimeout(()=>loadOwnProfile(true).catch(console.error),80)})}
 
   async function init(){ensureUsernameDialog();ensureFriendScreen();bind();renderAccount();if(session()?.user)try{await loadOwnProfile()}catch(err){console.error('Profile load failed',err)}}
   window.RiftboundSocial={openBrowser,publish,getProfile:()=>profile,getSelected:selectedLibrary};

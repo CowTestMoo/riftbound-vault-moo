@@ -6,10 +6,12 @@ const DOMAINS = ['Fury','Calm','Mind','Body','Chaos','Order'];
 const TYPES = ['All','Legend','Unit','Rune','Spell','Gear','Battlefield','Token'];
 let catalog = [];
 let byCode = new Map();
+let catalogSets = [];
 let visibleCount = PAGE_SIZE;
 let filters = {search:'',type:'All',domain:'All',set:'All',ownedOnly:false};
 let state = loadState();
 let renderSignalFrame=0;
+let cardSearchFrame=0;
 const renderSignalScopes=new Set();
 let cardPreloadStarted=false;
 const cardPreloadImages=new Set();
@@ -64,7 +66,7 @@ function adjustOwned(code,delta,reason='Manual adjustment'){
   if(next===current) return;
   state.inventory[code]={...(state.inventory[code]||{}),owned:next};
   state.transactions.unshift({id:uid('txn'),cardCode:code,delta:next-current,reason,at:new Date().toISOString()});
-  saveState(); renderAll();
+  saveState(); renderCards(); renderStorage();
 }
 
 function cardDomain(card){
@@ -98,13 +100,24 @@ function sectionFor(card){
   if(cls==='Units') return `Energy ${Number(card.energy)>=6?'6+':(card.energy??'?')}`;
   return cls;
 }
-function locationFor(card){
+function locationFor(card,boxes=normalizeStorageBoxes(state.storageBoxes)){
   const domain=cardDomain(card);
-  const boxes=normalizeStorageBoxes(state.storageBoxes);
   const index=boxes.findIndex(box=>storageRuleMatches(box,card));
   if(index<0) return {box:null,boxId:null,boxName:'Unassigned',domain,bucket:'Unassigned',section:sectionFor(card)};
   const box=boxes[index];
   return {box:index+1,boxId:box.id,boxName:box.name,domain,bucket:box.rule,section:sectionFor(card)};
+}
+
+function allocationTotals(){
+  const decks=new Map(),loans=new Map();
+  for(const deck of state.decks){
+    for(const [code,qty] of Object.entries(deck.cards||{}))decks.set(code,(decks.get(code)||0)+Number(qty||0));
+  }
+  for(const loan of state.loans){
+    if(loan.returnedAt||!loan.cardCode)continue;
+    loans.set(loan.cardCode,(loans.get(loan.cardCode)||0)+Number(loan.qty||0));
+  }
+  return {decks,loans};
 }
 function describeStorageBox(box){
   const domainText=box.domains?.length?box.domains.join(' + '):'Any domain';
@@ -123,18 +136,31 @@ function preloadHalfCatalog(cards){
     seen.add(card.imageUrl);urls.push(card.imageUrl);
     if(urls.length>=target)break;
   }
-  let cursor=0,active=0;
-  const concurrency=8;
+  let cursor=0,active=0,pumpScheduled=false;
+  const concurrency=4;
   const pump=()=>{
+    if(document.hidden)return;
     while(active<concurrency&&cursor<urls.length){
       const image=new Image();active++;cardPreloadImages.add(image);
       image.decoding='async';image.fetchPriority='low';
-      image.onload=image.onerror=()=>{active--;cardPreloadImages.delete(image);pump()};
+      image.onload=image.onerror=()=>{active--;cardPreloadImages.delete(image);schedulePump()};
       image.src=urls[cursor++];
     }
-    if(cursor>=urls.length&&active===0)window.dispatchEvent(new CustomEvent('riftbound-card-preload-complete',{detail:{count:urls.length}}));
+    if(cursor>=urls.length&&active===0){
+      document.removeEventListener('visibilitychange',resume);
+      window.dispatchEvent(new CustomEvent('riftbound-card-preload-complete',{detail:{count:urls.length}}));
+    }
   };
-  const start=()=>{pump();window.dispatchEvent(new CustomEvent('riftbound-card-preload-started',{detail:{count:urls.length}}))};
+  const schedulePump=()=>{
+    if(pumpScheduled)return;
+    pumpScheduled=true;
+    const run=()=>{pumpScheduled=false;pump()};
+    if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:800});
+    else setTimeout(run,80);
+  };
+  const resume=()=>{if(!document.hidden)schedulePump()};
+  const start=()=>{schedulePump();window.dispatchEvent(new CustomEvent('riftbound-card-preload-started',{detail:{count:urls.length}}))};
+  document.addEventListener('visibilitychange',resume);
   if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:1200});else setTimeout(start,120);
 }
 
@@ -146,10 +172,18 @@ async function loadCatalog(){
     const data=await r.json();
     catalog=Array.isArray(data)?data:(data.cards||[]);
     if(catalog.length<100) throw new Error(`Only ${catalog.length} cards found`);
-    catalog=catalog.map((c,i)=>({...c,cardCode:String(c.cardCode||c.code||c.id||`card-${i}`),fullName:c.fullName||c.name||c.cardCode||`Card ${i}`,cardSet:c.cardSet||c.setName||c.setCode||'Unknown',cardNumber:c.cardNumber||c.collectorNumber||'',cardType:c.cardType||c.type||'Unknown',domains:Array.isArray(c.domains)?c.domains:(c.domain?[c.domain]:[]),domain:c.domain||(Array.isArray(c.domains)?c.domains[0]:'Unassigned'),imageUrl:c.imageUrl||c.image_url||''}));
+    catalog=catalog.map((c,i)=>{
+      const card={...c,cardCode:String(c.cardCode||c.code||c.id||`card-${i}`),fullName:c.fullName||c.name||c.cardCode||`Card ${i}`,cardSet:c.cardSet||c.setName||c.setCode||'Unknown',cardNumber:c.cardNumber||c.collectorNumber||'',cardType:c.cardType||c.type||'Unknown',domains:Array.isArray(c.domains)?c.domains:(c.domain?[c.domain]:[]),domain:c.domain||(Array.isArray(c.domains)?c.domains[0]:'Unassigned'),imageUrl:c.imageUrl||c.image_url||''};
+      card._typeKey=norm(card.cardType);
+      card._labelKeys=(card.cardTypeLabels||[]).map(norm);
+      card._searchIndex=norm([nameOf(card),card.cardSet,card.cardNumber,card.cardCode,card.cardType].join(' '));
+      return card;
+    });
     byCode=new Map(catalog.map(c=>[c.cardCode,c]));
+    catalogSets=[...new Set(catalog.map(c=>c.cardSet).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
     $('catalogStatus').textContent=`${catalog.length.toLocaleString()} cards loaded`;
     renderAll();
+    window.dispatchEvent(new CustomEvent('riftbound-catalog-ready',{detail:{catalog}}));
     preloadHalfCatalog(catalog);
   }catch(err){
     console.error(err);
@@ -163,18 +197,25 @@ function chip(v,active,kind){ return `<button class="filter-chip ${active?'activ
 function renderFilters(){
   $('typeFilters').innerHTML=TYPES.map(v=>chip(v,filters.type===v,'type')).join('');
   $('domainFilters').innerHTML=['All',...DOMAINS].map(v=>chip(v,filters.domain===v,'domain')).join('');
-  const sets=[...new Set(catalog.map(c=>c.cardSet).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  $('setFilters').innerHTML=['All',...sets].map(v=>chip(v,filters.set===v,'set')).join('');
+  $('setFilters').innerHTML=['All',...catalogSets].map(v=>chip(v,filters.set===v,'set')).join('');
   signalUi('filters');
+}
+function toggleFilter(kind,value){
+  if(!['type','domain','set'].includes(kind))return;
+  filters[kind]=value!=='All'&&filters[kind]===value?'All':value;
+  visibleCount=PAGE_SIZE;
+  renderFilters();
+  renderCards();
 }
 function filteredCards(){
   const search=norm(filters.search);
+  const typeKey=norm(filters.type);
   return catalog.filter(c=>{
     if(filters.ownedOnly&&owned(c.cardCode)<=0) return false;
-    if(filters.type!=='All'&&norm(c.cardType)!==norm(filters.type)&&!(c.cardTypeLabels||[]).map(norm).includes(norm(filters.type))) return false;
+    if(filters.type!=='All'&&c._typeKey!==typeKey&&!c._labelKeys.includes(typeKey)) return false;
     if(filters.domain!=='All'&&c.domain!==filters.domain&&!(c.domains||[]).includes(filters.domain)) return false;
     if(filters.set!=='All'&&c.cardSet!==filters.set) return false;
-    if(search&&!norm([nameOf(c),c.cardSet,c.cardNumber,c.cardCode,c.cardType].join(' ')).includes(search)) return false;
+    if(search&&!c._searchIndex.includes(search)) return false;
     return true;
   });
 }
@@ -199,12 +240,19 @@ function renderStats(){
 }
 function renderStorage(){
   const boxes=normalizeStorageBoxes(state.storageBoxes);
-  let html='';
-  boxes.forEach((box,i)=>{
-    const cards=catalog.filter(c=>locationFor(c).boxId===box.id&&available(c.cardCode)>0);
-    const count=cards.reduce((s,c)=>s+available(c.cardCode),0);
-    html+=`<button class="storage-box" data-box="${esc(box.id)}"><div class="storage-top"><span class="storage-number">POSITION ${String(i+1).padStart(2,'0')}</span><span class="storage-count">${count} cards</span></div><h3>${esc(box.name)}</h3><p>${esc(describeStorageBox(box))}</p><small>${cards.length} unique cards</small></button>`;
-  });
+  const routed=new Map(boxes.map(box=>[box.id,[]]));
+  const {decks,loans}=allocationTotals();
+  for(const card of catalog){
+    const qty=Math.max(0,owned(card.cardCode)-(decks.get(card.cardCode)||0)-(loans.get(card.cardCode)||0));
+    if(!qty)continue;
+    const boxId=locationFor(card,boxes).boxId;
+    if(boxId&&routed.has(boxId))routed.get(boxId).push({card,qty});
+  }
+  const html=boxes.map((box,i)=>{
+    const cards=routed.get(box.id)||[];
+    const count=cards.reduce((sum,row)=>sum+row.qty,0);
+    return `<button class="storage-box" data-box="${esc(box.id)}"><div class="storage-top"><span class="storage-number">POSITION ${String(i+1).padStart(2,'0')}</span><span class="storage-count">${count} cards</span></div><h3>${esc(box.name)}</h3><p>${esc(describeStorageBox(box))}</p><small>${cards.length} unique cards</small></button>`;
+  }).join('');
   $('storageGrid').innerHTML=html||'<div class="empty-state">No storage boxes configured yet. Use Customize Storage to add one.</div>';
   signalUi('storage');
 }
@@ -221,35 +269,41 @@ function showCard(code){
 }
 function showBox(boxId){
   const boxes=normalizeStorageBoxes(state.storageBoxes),box=boxes.find(b=>b.id===boxId);if(!box)return;
-  const cards=catalog.filter(c=>locationFor(c).boxId===box.id&&available(c.cardCode)>0);
-  $('storageDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><div><h2>${esc(box.name)}</h2><p class="detail-meta">Position ${boxes.indexOf(box)+1} • ${esc(describeStorageBox(box))}</p></div><button class="close-btn" data-close="storageDialog">×</button></div>${cards.length?`<div class="card-lines">${cards.map(c=>`<div class="card-line"><span>${esc(locationFor(c).section)} • ${esc(nameOf(c))}</span><strong>×${available(c.cardCode)}</strong></div>`).join('')}</div>`:'<div class="empty-state">No cards route here yet.</div>'}</div>`;
+  const cards=catalog.filter(c=>locationFor(c,boxes).boxId===box.id&&available(c.cardCode)>0);
+  $('storageDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><div><h2>${esc(box.name)}</h2><p class="detail-meta">Position ${boxes.indexOf(box)+1} • ${esc(describeStorageBox(box))}</p></div><button class="close-btn" data-close="storageDialog">×</button></div>${cards.length?`<div class="card-lines">${cards.map(c=>`<div class="card-line"><span>${esc(locationFor(c,boxes).section)} • ${esc(nameOf(c))}</span><strong>×${available(c.cardCode)}</strong></div>`).join('')}</div>`:'<div class="empty-state">No cards route here yet.</div>'}</div>`;
   $('storageDialog').showModal();
   signalUi('storage-dialog');
 }
 function openBulk(){
-  $('bulkDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Bulk Add</h2><button class="close-btn" data-close="bulkDialog">×</button></div><div class="search-wrap"><input id="bulkSearch" placeholder="Search card"></div><div id="bulkResults" class="bulk-results"></div></div>`;
+  $('bulkDialog').innerHTML=`<div class="modal-inner"><div class="modal-head"><h2>Bulk Add</h2><button class="close-btn" data-close="bulkDialog">×</button></div><div class="search-wrap"><input id="bulkSearch" type="search" name="riftbound-bulk-card-search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Search card"></div><div id="bulkResults" class="bulk-results"></div></div>`;
   $('bulkDialog').showModal(); renderBulk('');
 }
 function renderBulk(text){
   if(!$('bulkResults')) return;
-  const matches=catalog.filter(c=>norm(nameOf(c)).includes(norm(text))).slice(0,40);
+  const needle=norm(text);
+  const matches=catalog.filter(c=>c._searchIndex.includes(needle)).slice(0,40);
   $('bulkResults').innerHTML=matches.map(c=>`<div class="bulk-row"><div>${c.imageUrl?`<img loading="lazy" decoding="async" fetchpriority="low" src="${esc(c.imageUrl)}" alt="">`:''}</div><div><strong>${esc(nameOf(c))}</strong><br><small>Owned ${owned(c.cardCode)}</small></div><div class="bulk-buttons"><button data-bulk="1" data-code="${esc(c.cardCode)}">+1</button><button data-bulk="4" data-code="${esc(c.cardCode)}">+4</button><button data-bulk="10" data-code="${esc(c.cardCode)}">+10</button></div></div>`).join('');
 }
 function switchTab(tab){ qsa('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); qsa('.view').forEach(v=>v.classList.remove('active')); $(`${tab}View`)?.classList.add('active'); signalUi('tab'); }
 function exportBackup(){ const b=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),state},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`riftbound-vault-backup-${new Date().toISOString().slice(0,10)}.json`; a.click(); }
 
 function wireEvents(){
+  $('cardSearchForm')?.addEventListener('submit',event=>event.preventDefault());
   document.addEventListener('click',e=>{
     let x;
     if(x=e.target.closest('.tab')) return switchTab(x.dataset.tab);
-    if(x=e.target.closest('.filter-chip')){ filters[x.dataset.kind]=x.dataset.value; visibleCount=PAGE_SIZE; renderFilters(); return renderCards(); }
+    if(x=e.target.closest('#cardsView .filter-chip[data-kind]'))return toggleFilter(x.dataset.kind,x.dataset.value);
     if(x=e.target.closest('[data-card]')) return showCard(x.dataset.card);
     if(x=e.target.closest('[data-close]')) return $(x.dataset.close)?.close();
     if(x=e.target.closest('[data-adjust]')){ const code=x.dataset.code; adjustOwned(code,Number(x.dataset.adjust)); return showCard(code); }
     if(x=e.target.closest('[data-box]')) return showBox(x.dataset.box);
     if(x=e.target.closest('[data-bulk]')){ adjustOwned(x.dataset.code,Number(x.dataset.bulk),'Bulk entry'); return renderBulk($('bulkSearch')?.value||''); }
   });
-  $('cardSearch').addEventListener('input',e=>{ filters.search=e.target.value; visibleCount=PAGE_SIZE; renderCards(); });
+  $('cardSearch').addEventListener('input',e=>{
+    filters.search=e.target.value;visibleCount=PAGE_SIZE;
+    if(cardSearchFrame)return;
+    cardSearchFrame=requestAnimationFrame(()=>{cardSearchFrame=0;renderCards()});
+  });
   $('ownedOnly').addEventListener('change',e=>{ filters.ownedOnly=e.target.checked; renderCards(); });
   $('bulkAddBtn').addEventListener('click',openBulk);
   $('newDeckBtn').addEventListener('click',()=>alert('Deck editor is the next build step after the gallery is stable.'));

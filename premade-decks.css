@@ -3,3 +3,4 @@
 body[data-vault-theme="neon"] .premade-tile.selected,body[data-vault-theme="neon"] .premade-preview{border-color:rgba(57,255,216,.25);box-shadow:-2px 0 14px rgba(255,60,247,.04),2px 0 18px rgba(57,255,216,.05)}body[data-vault-theme="neon"] .premade-badge{border-color:rgba(57,255,216,.24);background:rgba(57,255,216,.07);color:#9affeb}body[data-vault-theme="neon"] .premade-tile strong{color:#c9fff5}
 @media(max-width:820px){.premade-layout{grid-template-columns:1fr}.premade-preview{order:-1}.premade-card-list{max-height:30vh}.premade-list{max-height:none}.premade-grid{grid-template-columns:1fr}}
 @media(max-width:700px){#premadeDeckBtn{margin-right:0}.premade-manager{padding:14px}.premade-preview-head{grid-template-columns:54px 1fr}.premade-preview-head img{width:50px;height:69px}.premade-tile{grid-template-columns:44px 1fr}.premade-tile>img{width:40px;height:55px}.premade-tile button{grid-column:2;width:100%}}
+#premadeDeckBtn{margin-right:0}

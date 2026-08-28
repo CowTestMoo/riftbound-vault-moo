@@ -1,5 +1,8 @@
-const CACHE='riftbound-vault-shell-v45';
-const SHELL=['./','./index.html','./styles.css','./cosmic-effects.css','./polish.css','./cosmic-cleanup.css','./ux.css','./vault-features.css','./invite-lock.css','./spreadsheet-import.css','./storage-customizer.css','./social-libraries.css','./ui-refinements.css','./theme-system.css','./neon-background.css','./friend-library-extras.css','./mobile-ui.css','./mobile-experience.css','./vault-compare.css','./scanner-v2.css','./theme-fixes.css','./header-actions.css','./rune-filters.css','./premade-decks.css','./recommended-decks.css','./cosmic.js','./polish.js','./theme-bootstrap.js','./ux.js','./dashboard-toggles.js','./app.js','./app-bridge.js','./storage-customizer.js','./auth-session-pref.js','./cloud-sync.js','./invite-lock.js','./vault-features.js','./spreadsheet-import.js','./smart-import-badges.js','./export-enhancer.js','./social-libraries.js','./utility-controls.js','./theme-system-v3.js','./cosmic-audio.js','./neon-background-v2.js','./neon-audio.js','./neon-effects.js','./profile-switching.js','./friend-library-extras.js','./mobile-ui.js','./mobile-experience.js','./live-values.js','./scanner-ai.js','./vault-compare.js','./rune-filters.js','./premade-decks.js','./recommended-decks.js','./manifest.json','./icon.svg'];
+const CACHE='riftbound-vault-shell-v46';
+const SHELL=[
+  './','./index.html','./styles.css','./polish.css','./cosmic-cleanup.css','./ux.css','./vault-features.css','./invite-lock.css','./spreadsheet-import.css','./storage-customizer.css','./social-libraries.css','./ui-refinements.css','./theme-system.css','./friend-library-extras.css','./mobile-ui.css','./mobile-experience.css','./vault-compare.css','./scanner-v2.css','./theme-fixes.css','./header-actions.css','./rune-filters.css','./premade-decks.css','./recommended-decks.css',
+  './polish.js','./theme-bootstrap.js','./theme-loader.js','./ux.js','./dashboard-toggles.js','./app.js','./app-bridge.js','./storage-customizer.js','./auth-session-pref.js','./cloud-sync.js','./invite-lock.js','./vault-features.js','./spreadsheet-import.js','./smart-import-badges.js','./export-enhancer.js','./social-libraries.js','./utility-controls.js','./theme-system-v3.js','./profile-switching.js','./friend-library-extras.js','./mobile-ui.js','./mobile-experience.js','./live-values.js','./scanner-ai.js','./vault-compare.js','./rune-filters.js','./premade-decks.js','./recommended-decks.js','./manifest.json','./icon.svg'
+];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();
@@ -15,7 +18,7 @@ self.addEventListener('activate',event=>{
 });
 
 self.addEventListener('fetch',event=>{
-  if(event.request.method!=='GET') return;
+  if(event.request.method!=='GET')return;
   const url=new URL(event.request.url);
   if(url.origin===self.location.origin){
     event.respondWith(

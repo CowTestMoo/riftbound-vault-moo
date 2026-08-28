@@ -88,6 +88,8 @@
   function switchTheme(value){
     if(value==='neon')writeUX({intensity:'neon',sound:false});
     else writeUX({intensity:'supernova',sound:false});
+    const next=value==='neon'?'neon':'cosmic';
+    if(window.RiftboundThemeAssets?.getLoadedTheme?.()!==next){window.RiftboundThemeAssets?.switchTo?.(next);return}
     apply();setTimeout(()=>play('switch'),25);
   }
 

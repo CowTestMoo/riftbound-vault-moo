@@ -11,6 +11,8 @@ let filters = {search:'',type:'All',domain:'All',set:'All',ownedOnly:false};
 let state = loadState();
 let renderSignalFrame=0;
 const renderSignalScopes=new Set();
+let cardPreloadStarted=false;
+const cardPreloadImages=new Set();
 
 const $ = id => document.getElementById(id);
 const qsa = (s,r=document) => [...r.querySelectorAll(s)];
@@ -110,6 +112,32 @@ function describeStorageBox(box){
   return `${domainText} • ${ruleText}`;
 }
 
+function preloadHalfCatalog(cards){
+  if(cardPreloadStarted)return;
+  cardPreloadStarted=true;
+  const target=Math.ceil(cards.length/2);
+  const urls=[];
+  const seen=new Set();
+  for(const card of cards){
+    if(!card.imageUrl||seen.has(card.imageUrl))continue;
+    seen.add(card.imageUrl);urls.push(card.imageUrl);
+    if(urls.length>=target)break;
+  }
+  let cursor=0,active=0;
+  const concurrency=8;
+  const pump=()=>{
+    while(active<concurrency&&cursor<urls.length){
+      const image=new Image();active++;cardPreloadImages.add(image);
+      image.decoding='async';image.fetchPriority='low';
+      image.onload=image.onerror=()=>{active--;cardPreloadImages.delete(image);pump()};
+      image.src=urls[cursor++];
+    }
+    if(cursor>=urls.length&&active===0)window.dispatchEvent(new CustomEvent('riftbound-card-preload-complete',{detail:{count:urls.length}}));
+  };
+  const start=()=>{pump();window.dispatchEvent(new CustomEvent('riftbound-card-preload-started',{detail:{count:urls.length}}))};
+  if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:1200});else setTimeout(start,120);
+}
+
 async function loadCatalog(){
   try{
     $('catalogStatus').textContent='Loading Riftbound catalog...';
@@ -122,6 +150,7 @@ async function loadCatalog(){
     byCode=new Map(catalog.map(c=>[c.cardCode,c]));
     $('catalogStatus').textContent=`${catalog.length.toLocaleString()} cards loaded`;
     renderAll();
+    preloadHalfCatalog(catalog);
   }catch(err){
     console.error(err);
     $('catalogStatus').textContent=`Catalog error: ${err.message}`;

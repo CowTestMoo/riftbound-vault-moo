@@ -1,19 +1,24 @@
 (() => {
   'use strict';
 
+  const mobile=()=>window.matchMedia('(max-width:700px)').matches;
   function signedIn(){return !!window.RiftboundCloud?.getSession?.()?.user}
 
-  function ensureHeaderActions(topbar){
-    let actions=document.getElementById('topbarActions');
-    if(!actions){
-      actions=document.createElement('div');
-      actions.id='topbarActions';
-      actions.className='topbar-actions';
-      topbar.appendChild(actions);
-    }
+  function restoreOriginalHeader(topbar){
+    const actions=document.getElementById('topbarActions');
     const exportBtn=document.getElementById('exportBtn');
-    if(exportBtn&&exportBtn.parentElement!==actions)actions.appendChild(exportBtn);
-    return actions;
+    const account=document.getElementById('socialAccountArea');
+
+    /* Restore the original header flow: brand -> Export -> username/account. */
+    if(exportBtn&&exportBtn.parentElement!==topbar)topbar.insertBefore(exportBtn,account||null);
+    else if(exportBtn&&account&&exportBtn.nextElementSibling!==account)topbar.insertBefore(exportBtn,account);
+
+    if(actions){
+      [...actions.children].forEach(child=>{
+        if(child!==exportBtn&&child.id!=='uxSettingsBtn')topbar.insertBefore(child,account||null);
+      });
+      actions.remove();
+    }
   }
 
   function ensureFeatureLoaders(){
@@ -25,28 +30,40 @@
     }
   }
 
+  function placeDesktopUtilities(settings,browse,tabs){
+    settings.textContent='Settings';
+    settings.classList.remove('ghost-btn','ux-settings-btn','mobile-utility-btn','mobile-settings-utility');
+    settings.classList.add('library-nav-btn');
+
+    const tools=tabs.querySelector('[data-tab="tools"]');
+    if(browse){
+      browse.textContent='Browse Libraries';
+      browse.classList.remove('mobile-utility-btn','mobile-library-utility');
+      browse.classList.add('library-nav-btn');
+      if(tools&&tools.nextElementSibling!==browse)tools.insertAdjacentElement('afterend',browse);
+      else if(!tools&&browse.parentElement!==tabs)tabs.appendChild(browse);
+      if(browse.nextElementSibling!==settings)browse.insertAdjacentElement('afterend',settings);
+    }else if(tools){
+      if(tools.nextElementSibling!==settings)tools.insertAdjacentElement('afterend',settings);
+    }else if(settings.parentElement!==tabs){
+      tabs.appendChild(settings);
+    }
+  }
+
   function ensureControls(){
     const settings=document.getElementById('uxSettingsBtn');
     const topbar=document.querySelector('.topbar');
     const tabs=document.querySelector('.tabs');
     if(!settings||!topbar||!tabs)return;
 
-    /* Desktop Settings belongs in the header, not in a separate row. */
-    const actions=ensureHeaderActions(topbar);
-    settings.textContent='Settings';
-    if(!window.matchMedia('(max-width:700px)').matches&&settings.parentElement!==actions){
-      actions.insertBefore(settings,document.getElementById('exportBtn')||null);
-    }
-
-    /* Remove the old standalone utility row so it cannot leave an empty gap. */
+    restoreOriginalHeader(topbar);
     document.getElementById('globalUtilityBar')?.remove();
 
     let browse=document.getElementById('browseLibrariesUtilityBtn');
     if(!signedIn()){
       browse?.remove();
-      return;
-    }
-    if(!browse){
+      browse=null;
+    }else if(!browse){
       browse=document.createElement('button');
       browse.id='browseLibrariesUtilityBtn';
       browse.className='library-nav-btn';
@@ -54,9 +71,9 @@
       browse.textContent='Browse Libraries';
       browse.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.RiftboundSocial?.openBrowser?.()});
     }
-    const tools=tabs.querySelector('[data-tab="tools"]');
-    if(tools){if(tools.nextElementSibling!==browse)tools.insertAdjacentElement('afterend',browse)}
-    else if(browse.parentElement!==tabs)tabs.appendChild(browse);
+
+    /* Mobile owns these controls while under 700px. */
+    if(!mobile())placeDesktopUtilities(settings,browse,tabs);
   }
 
   function init(){

@@ -28,3 +28,7 @@ body[data-vault-theme="neon"] #cosmicSky{display:none!important;visibility:hidde
 
 /* Keep Cosmic planet styling exclusive to Cosmic. */
 body[data-vault-theme="cosmic"] .vault-planet{display:inline-block}
+
+/* Let browsers skip layout/paint work for card content well outside the viewport. */
+.card-tile,.friend-card,.premade-tile{content-visibility:auto;contain-intrinsic-size:auto 260px}
+.card-image,.friend-card img,.premade-tile img{image-rendering:auto}

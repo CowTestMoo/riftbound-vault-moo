@@ -58,6 +58,7 @@
     const browse=document.getElementById('browseLibrariesUtilityBtn');
     if(!browse)return;
     browse.textContent='Libraries';
+    browse.classList.remove('tab','browse-library-tab','library-nav-btn');
     browse.classList.add('mobile-utility-btn','mobile-library-utility');
     const settings=document.getElementById('uxSettingsBtn');
     if(settings?.parentElement===bar)bar.insertBefore(browse,settings);
@@ -67,41 +68,30 @@
   function prepareSettingsButton(bar){
     const settings=document.getElementById('uxSettingsBtn');
     if(!settings)return;
+    const stack=document.getElementById('accountSettingsStack');
+    const account=document.getElementById('socialAccountArea');
+    if(stack){
+      if(account&&account.parentElement===stack)stack.insertAdjacentElement('beforebegin',account);
+      stack.remove();
+    }
     settings.textContent='Settings';
-    settings.classList.remove('library-nav-btn');
+    settings.classList.remove('account-settings-btn','library-nav-btn','tab','settings-tab-fallback','ghost-btn','ux-settings-btn');
     settings.classList.add('mobile-utility-btn','mobile-settings-utility');
     if(settings.parentElement!==bar)bar.appendChild(settings);
   }
 
   function restoreDesktopControls(){
-    const settings=document.getElementById('uxSettingsBtn');
-    const browse=document.getElementById('browseLibrariesUtilityBtn');
-    const tabs=document.querySelector('.tabs');
-
-    if(browse&&tabs){
-      browse.textContent='Browse Libraries';
-      browse.classList.remove('mobile-utility-btn','mobile-library-utility');
-      browse.classList.add('library-nav-btn');
-      const tools=tabs.querySelector('[data-tab="tools"]');
-      if(tools&&tools.nextElementSibling!==browse)tools.insertAdjacentElement('afterend',browse);
-      else if(!tools&&browse.parentElement!==tabs)tabs.appendChild(browse);
-    }
-
-    if(settings&&tabs){
-      settings.textContent='Settings';
-      settings.classList.remove('mobile-utility-btn','mobile-settings-utility','ghost-btn','ux-settings-btn');
-      settings.classList.add('library-nav-btn');
-      if(browse&&browse.nextElementSibling!==settings)browse.insertAdjacentElement('afterend',settings);
-      else if(!browse&&settings.parentElement!==tabs)tabs.appendChild(settings);
-    }
+    const bar=document.getElementById('mobileUtilityBar');
+    if(bar)bar.replaceChildren();
+    window.RiftboundUtilities?.placeDesktopUtilities?.();
   }
 
   function syncActive(){
-    const active=document.querySelector('.tab.active')?.dataset.tab||'';
-    document.querySelectorAll('#mobileNav [data-mobile-tab]').forEach(b=>{
-      const on=b.dataset.mobileTab===active;
-      b.classList.toggle('active',on);
-      if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+    const active=document.querySelector('.tab.active[data-tab]')?.dataset.tab||'';
+    document.querySelectorAll('#mobileNav [data-mobile-tab]').forEach(button=>{
+      const on=button.dataset.mobileTab===active;
+      button.classList.toggle('active',on);
+      if(on)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
     });
     const tools=document.getElementById('mobileToolsCenterBtn');
     if(tools){
@@ -123,8 +113,8 @@
     syncActive();
   }
 
-  document.addEventListener('click',e=>{
-    if(e.target.closest('.tab,[data-mobile-tab],#mobileToolsCenterBtn'))setTimeout(syncActive,0);
+  document.addEventListener('click',event=>{
+    if(event.target.closest('.tab,[data-mobile-tab],#mobileToolsCenterBtn'))setTimeout(syncActive,0);
   },true);
   window.addEventListener('riftbound-social-ready',()=>setTimeout(apply,0));
   window.addEventListener('riftbound-auth-storage-change',()=>setTimeout(apply,80));

@@ -3,7 +3,7 @@ name: Sync Riftbound card catalog
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 8 * * *'
+    - cron: '17 8 * * 1'
   push:
     paths:
       - '.github/workflows/sync-card-catalog.yml'

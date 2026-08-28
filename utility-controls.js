@@ -16,6 +16,11 @@
     return actions;
   }
 
+  function ensurePremadeLoader(){
+    if(window.RiftboundPremades||document.getElementById('premadeDeckScript'))return;
+    const s=document.createElement('script');s.id='premadeDeckScript';s.src='./premade-decks.js?v=1';s.defer=true;document.body.appendChild(s);
+  }
+
   function ensureControls(){
     const settings=document.getElementById('uxSettingsBtn');
     const topbar=document.querySelector('.topbar');
@@ -51,6 +56,7 @@
   }
 
   function init(){
+    ensurePremadeLoader();
     ensureControls();
     setTimeout(ensureControls,350);
     window.addEventListener('riftbound-cloud-restored',ensureControls);

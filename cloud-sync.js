@@ -9,7 +9,7 @@
   const META_KEY='riftbound-vault-sync-meta-v1';
   const BACKGROUND_MIN_MS=5*60*1000;
   let session=readJSON(AUTH_KEY,null);
-  let syncing=false,syncTimer=0,suppress=false,reconciling=null,lastBackgroundCheck=0,lastRemoteFingerprint='';
+  let syncing=false,syncTimer=0,suppress=false,reconciling=null,lastBackgroundCheck=0,lastRemoteFingerprint='',hydratedUserId='';
 
   function readJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'')||fallback}catch{return fallback}}
   function writeJSON(key,value){localStorage.setItem(key,JSON.stringify(value))}
@@ -21,6 +21,9 @@
   function setMeta(p){writeJSON(META_KEY,{...meta(),...p})}
   function localHash(){return hash(snapshot())}
   function hasUnsyncedLocal(){const m=meta();return !!m.lastSyncedHash&&localHash()!==m.lastSyncedHash}
+  function currentUserId(){return session?.user?.id||''}
+  function isHydrated(){const id=currentUserId();return !!id&&hydratedUserId===id}
+  function resetHydration(){clearTimeout(syncTimer);syncTimer=0;hydratedUserId='';lastRemoteFingerprint=''}
 
   const nativeSet=Storage.prototype.setItem;
   Storage.prototype.setItem=function(k,v){
@@ -28,7 +31,7 @@
     if(this===localStorage&&!suppress&&(k===APP_KEY||k===UX_KEY)){
       setMeta({localChangedAt:nowIso(),localHash:localHash()});
       window.dispatchEvent(new CustomEvent('riftbound-local-change',{detail:{key:k}}));
-      scheduleSync();
+      if(isHydrated()&&!reconciling)scheduleSync();
     }
   };
 
@@ -40,7 +43,15 @@
   }
 
   function normalizeSession(data){return{access_token:data.access_token,refresh_token:data.refresh_token,expiresAt:Date.now()+Number(data.expires_in||3600)*1000,user:data.user||session?.user||null}}
-  function saveSession(s){session=s;if(s)writeJSON(AUTH_KEY,s);else localStorage.removeItem(AUTH_KEY);renderCloudUI();window.dispatchEvent(new CustomEvent('riftbound-auth-storage-change'))}
+  function saveSession(s){
+    const previousId=currentUserId();
+    session=s;
+    const nextId=currentUserId();
+    if(previousId!==nextId)resetHydration();
+    if(s)writeJSON(AUTH_KEY,s);else localStorage.removeItem(AUTH_KEY);
+    renderCloudUI();
+    window.dispatchEvent(new CustomEvent('riftbound-auth-storage-change'));
+  }
   async function refreshSession(){if(!session?.refresh_token)return null;const data=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});saveSession(normalizeSession(data));return session}
   async function freshSession(){if(!session)return null;if(Number(session.expiresAt||0)<Date.now()+90000){try{return await refreshSession()}catch{saveSession(null);return null}}return session}
   async function signIn(email,password){const data=await request('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});saveSession(normalizeSession(data));await reconcileAfterLogin(true);return session}
@@ -61,34 +72,54 @@
   async function setInvitedPassword(password){const s=await freshSession();if(!s)throw new Error('Invite session expired. Ask for a new invitation.');await request('/auth/v1/user',{method:'PUT',token:s.access_token,body:{password}});const user=await request('/auth/v1/user',{token:s.access_token});session.user=user;saveSession(session);await reconcileAfterLogin(true)}
 
   async function fetchRemote(){const s=await freshSession();if(!s)return null;const rows=await request(`/rest/v1/vault_state?user_id=eq.${encodeURIComponent(s.user.id)}&select=state,updated_at`,{token:s.access_token});return Array.isArray(rows)&&rows[0]?rows[0]:null}
-  async function pushRemote(){
-    const s=await freshSession();if(!s||syncing)return false;
+  async function pushRemote({allowUnhydrated=false,allowDuringReconcile=false}={}){
+    const s=await freshSession();
+    if(!s||syncing)return false;
+    if(reconciling&&!allowDuringReconcile)return false;
+    if(!allowUnhydrated&&hydratedUserId!==s.user.id){setStatus('Loading cloud…','syncing');return false}
     const snap=snapshot(),h=hash(snap),m=meta();
     if(m.lastSyncedHash===h){setStatus('Synced','ok');return true}
     syncing=true;setStatus('Syncing…','syncing');
-    try{const rows=await request('/rest/v1/vault_state?on_conflict=user_id',{method:'POST',token:s.access_token,headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:{user_id:s.user.id,state:snap,updated_at:nowIso()}}),updated=Array.isArray(rows)&&rows[0]?.updated_at||nowIso();setMeta({lastRemoteAt:updated,lastSyncedHash:h,localHash:h,lastSyncAt:nowIso()});lastRemoteFingerprint=`${updated}:${h}`;setStatus('Synced','ok');return true}catch(err){setStatus(navigator.onLine?'Sync error':'Offline','error');console.error('Cloud sync failed',err);return false}finally{syncing=false}
+    try{const rows=await request('/rest/v1/vault_state?on_conflict=user_id',{method:'POST',token:s.access_token,headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:{user_id:s.user.id,state:snap,updated_at:nowIso()}}),updated=Array.isArray(rows)&&rows[0]?.updated_at||nowIso();setMeta({lastRemoteAt:updated,lastSyncedHash:h,localHash:h,lastSyncAt:nowIso()});lastRemoteFingerprint=`${updated}:${h}`;hydratedUserId=s.user.id;setStatus('Synced','ok');return true}catch(err){setStatus(navigator.onLine?'Sync error':'Offline','error');console.error('Cloud sync failed',err);return false}finally{syncing=false}
   }
-  function scheduleSync(){clearTimeout(syncTimer);if(session)syncTimer=setTimeout(async()=>{syncTimer=0;await pushRemote()},1200)}
+  function scheduleSync(){
+    clearTimeout(syncTimer);
+    if(!session||!isHydrated()||reconciling)return;
+    syncTimer=setTimeout(async()=>{
+      syncTimer=0;
+      if(reconciling||!isHydrated())return;
+      await pushRemote();
+    },1200);
+  }
 
   async function reconcileAfterLogin(force=false){
     if(reconciling)return reconciling;
-    if(!force&&Date.now()-lastBackgroundCheck<BACKGROUND_MIN_MS)return null;
+    if(!force&&isHydrated()&&Date.now()-lastBackgroundCheck<BACKGROUND_MIN_MS)return null;
     lastBackgroundCheck=Date.now();
     reconciling=(async()=>{
+      const expectedUserId=currentUserId();
+      if(!expectedUserId)return;
       setStatus('Checking cloud…','syncing');
-      const remote=await fetchRemote();if(!session)return;
-      if(!remote){await pushRemote();return}
+      const remote=await fetchRemote();
+      if(!session||currentUserId()!==expectedUserId)return;
+      if(!remote){
+        hydratedUserId=expectedUserId;
+        await pushRemote({allowUnhydrated:true,allowDuringReconcile:true});
+        return;
+      }
       const remoteState=remote.state||{},local=snapshot(),remoteHash=hash(remoteState),localNowHash=hash(local),fingerprint=`${remote.updated_at}:${remoteHash}`;
-      if(fingerprint===lastRemoteFingerprint){setStatus('Synced','ok');return}
+      if(fingerprint!==lastRemoteFingerprint&&remoteHash!==localNowHash)restore(remoteState);
       lastRemoteFingerprint=fingerprint;
-      if(remoteHash!==localNowHash)restore(remoteState);
-      setMeta({lastRemoteAt:remote.updated_at,lastSyncedHash:remoteHash,localHash:remoteHash,lastSyncAt:nowIso()});setStatus(remoteHash===localNowHash?'Synced':'Cloud loaded','ok');
+      hydratedUserId=expectedUserId;
+      setMeta({lastRemoteAt:remote.updated_at,lastSyncedHash:remoteHash,localHash:remoteHash,lastSyncAt:nowIso()});
+      setStatus(remoteHash===localNowHash?'Synced':'Cloud loaded','ok');
     })().catch(err=>{console.error('Cloud reconcile failed',err);setStatus(navigator.onLine?'Sync error':'Offline','error')}).finally(()=>{reconciling=null});
     return reconciling;
   }
 
   async function backgroundSync(force=false){
     if(!session||syncing||reconciling||syncTimer||!navigator.onLine)return;
+    if(!isHydrated()){await reconcileAfterLogin(true);return}
     if(hasUnsyncedLocal()){await pushRemote();return}
     const now=Date.now();if(!force&&now-lastBackgroundCheck<BACKGROUND_MIN_MS)return;
     await reconcileAfterLogin(force);
@@ -117,6 +148,9 @@
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')backgroundSync(false)});
     /* No periodic polling: an untouched visible page stays network-idle. */
   }
-  window.RiftboundCloud={syncNow:()=>pushRemote(),signIn,signOut,getSession:()=>session,reconcile:()=>reconcileAfterLogin(true),backgroundSync};
+  window.RiftboundCloud={
+    syncNow:async()=>{if(session&&!isHydrated())await reconcileAfterLogin(true);return pushRemote()},
+    signIn,signOut,getSession:()=>session,reconcile:()=>reconcileAfterLogin(true),backgroundSync
+  };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

@@ -1,0 +1,55 @@
+name: Validate Assets
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate local page assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          class Parser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.assets=[]
+              def handle_starttag(self, tag, attrs):
+                  values=dict(attrs)
+                  value=values.get('src') if tag=='script' else values.get('href') if tag=='link' else None
+                  if value:
+                      self.assets.append(value)
+
+          parser=Parser()
+          parser.feed(Path('index.html').read_text(encoding='utf-8'))
+          local=[]
+          missing=[]
+          for raw in parser.assets:
+              path=urlsplit(raw).path
+              if not path or path.startswith('/') or '://' in raw:
+                  continue
+              path=path.removeprefix('./')
+              local.append(path)
+              if not Path(path).is_file():
+                  missing.append(path)
+
+          duplicates=sorted({p for p in local if local.count(p)>1})
+          if missing:
+              raise SystemExit('Missing local assets: '+', '.join(sorted(set(missing))))
+          if duplicates:
+              raise SystemExit('Duplicate local assets: '+', '.join(duplicates))
+          print(f'Validated {len(local)} local index assets.')
+          PY

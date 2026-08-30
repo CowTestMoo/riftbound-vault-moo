@@ -1,0 +1,86 @@
+name: Maintenance Clean App Rebuild
+
+on:
+  push:
+    paths:
+      - '.github/workflows/maintenance-rebuild-app.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rebuild app from known-good version
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+
+          base = subprocess.check_output([
+              'git','show','832e029bdb1c22f50f5bca49b2b62a4c498ba960:app.js'
+          ], text=True)
+
+          start = base.index('function preloadHalfCatalog(cards){')
+          end = base.index('\nasync function loadCatalog()', start)
+          replacement = '''function preloadHalfCatalog(cards){
+            if(cardPreloadStarted)return;
+            cardPreloadStarted=true;
+            const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+            const coarse=window.matchMedia('(pointer: coarse)').matches;
+            const constrained=!!connection?.saveData||/^(slow-2g|2g|3g)$/i.test(connection?.effectiveType||'');
+            if(coarse||constrained||window.innerWidth<=900){
+              window.dispatchEvent(new CustomEvent('riftbound-card-preload-complete',{detail:{count:0,skipped:true}}));
+              return;
+            }
+            const target=Math.min(24,Math.max(0,cards.length-PAGE_SIZE));
+            const urls=[];
+            const seen=new Set();
+            for(let i=PAGE_SIZE;i<cards.length&&urls.length<target;i++){
+              const card=cards[i];
+              if(!card?.imageUrl||seen.has(card.imageUrl))continue;
+              seen.add(card.imageUrl);urls.push(card.imageUrl);
+            }
+            if(!urls.length)return;
+            let cursor=0,active=0,pumpScheduled=false;
+            const concurrency=2;
+            const pump=()=>{
+              if(document.hidden)return;
+              while(active<concurrency&&cursor<urls.length){
+                const image=new Image();active++;cardPreloadImages.add(image);
+                image.decoding='async';image.fetchPriority='low';
+                image.onload=image.onerror=()=>{active--;cardPreloadImages.delete(image);schedulePump()};
+                image.src=urls[cursor++];
+              }
+              if(cursor>=urls.length&&active===0){
+                document.removeEventListener('visibilitychange',resume);
+                window.dispatchEvent(new CustomEvent('riftbound-card-preload-complete',{detail:{count:urls.length}}));
+              }
+            };
+            const schedulePump=()=>{
+              if(pumpScheduled)return;
+              pumpScheduled=true;
+              const run=()=>{pumpScheduled=false;pump()};
+              if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:1200});
+              else setTimeout(run,150);
+            };
+            const resume=()=>{if(!document.hidden)schedulePump()};
+            const start=()=>{schedulePump();window.dispatchEvent(new CustomEvent('riftbound-card-preload-started',{detail:{count:urls.length}}))};
+            document.addEventListener('visibilitychange',resume);
+            if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:1800});else setTimeout(start,250);
+          }
+          '''
+          Path('app.js').write_text(base[:start] + replacement + base[end:])
+      - name: Verify app syntax
+        run: node --check app.js
+      - name: Commit clean rebuild
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js
+          git commit -m "Rebuild mobile-safe preload cleanly"
+          git push

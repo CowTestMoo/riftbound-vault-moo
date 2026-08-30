@@ -105,9 +105,20 @@
       applyVisibility();
     });
 
-    const observer=new MutationObserver(()=>{
-      ensureSettingsExtras();
-      applyVisibility();
+    let refreshQueued=false;
+    const queueRefresh=()=>{
+      if(refreshQueued)return;refreshQueued=true;
+      requestAnimationFrame(()=>{refreshQueued=false;ensureSettingsExtras();applyVisibility()});
+    };
+    const observer=new MutationObserver(records=>{
+      for(const record of records){
+        for(const node of record.addedNodes){
+          if(node.nodeType!==1)continue;
+          if(node.matches?.('#uxSettings,#collectionDashboard,#filterSummary,.completion-burst')||node.querySelector?.('#uxSettings,#collectionDashboard,#filterSummary,.completion-burst')){
+            queueRefresh();return;
+          }
+        }
+      }
     });
     observer.observe(document.body,{childList:true,subtree:true});
 

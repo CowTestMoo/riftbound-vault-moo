@@ -13,6 +13,12 @@
     try{return JSON.parse(localStorage.getItem(UX_KEY)||'{}').intensity==='neon'?'neon':'cosmic'}
     catch{return 'cosmic'}
   }
+  function isLightweightDevice(){
+    const mobile=window.matchMedia('(max-width: 900px), (pointer: coarse)').matches;
+    const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+    const constrained=!!connection?.saveData||/^(slow-2g|2g|3g)$/i.test(connection?.effectiveType||'');
+    return mobile||constrained;
+  }
   function addStyle(href,theme){
     if(document.querySelector(`link[data-theme-asset="${theme}"][href="${href}"]`))return;
     const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.themeAsset=theme;document.head.appendChild(link);
@@ -26,11 +32,19 @@
     if(loadedTheme===theme)return theme;
     if(loading)return loading;
     const assets=ASSETS[theme]||ASSETS.cosmic;
+    const lightweight=isLightweightDevice();
     loadedTheme=theme;
     loading=(async()=>{
       assets.styles.forEach(href=>addStyle(href,theme));
+      if(lightweight){
+        document.documentElement.classList.add('riftbound-lightweight-theme');
+        const canvas=document.getElementById('cosmicSky');
+        if(canvas)canvas.style.display='none';
+        window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme,lightweight:true}}));
+        return theme;
+      }
       for(const src of assets.scripts)await addScript(src,theme);
-      window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme}}));
+      window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme,lightweight:false}}));
       return theme;
     })().catch(err=>{console.error('Theme assets failed to load',err);return theme});
     return loading;

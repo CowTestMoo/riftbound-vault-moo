@@ -16,6 +16,7 @@ let cardSearchFrame=0;
 const renderSignalScopes=new Set();
 let cardPreloadStarted=false;
 const cardPreloadImages=new Set();
+let catalogLoadPromise=null;
 
 const $ = id => document.getElementById(id);
 const qsa = (s,r=document) => [...r.querySelectorAll(s)];
@@ -192,6 +193,13 @@ function preloadHalfCatalog(cards){
   if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:1800});else setTimeout(start,250);
 }
 
+function ensureCatalogLoaded(){
+  if(catalog.length)return Promise.resolve(catalog);
+  if(catalogLoadPromise)return catalogLoadPromise;
+  catalogLoadPromise=loadCatalog().finally(()=>{if(!catalog.length)catalogLoadPromise=null});
+  return catalogLoadPromise;
+}
+
 async function loadCatalog(){
   try{
     $('catalogStatus').textContent='Loading Riftbound catalog...';
@@ -351,7 +359,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     $('ownedOnly').checked=filters.ownedOnly;
     wireEvents();
     renderFilters(); renderStats(); renderStorage(); renderDecks(); renderLoans();
-    loadCatalog();
+    if(window.RiftboundCloud?.getSession?.())ensureCatalogLoaded();
+    else $('catalogStatus').textContent='Sign in to load catalog';
+    window.addEventListener('riftbound-auth-storage-change',()=>{
+      if(window.RiftboundCloud?.getSession?.())ensureCatalogLoaded();
+    });
   }catch(err){
     console.error(err);
     $('catalogStatus').textContent=`App error: ${err.message}`;

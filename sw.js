@@ -1,5 +1,5 @@
 const CACHE_PREFIX='riftbound-vault-';
-const CACHE='riftbound-vault-shell-v77';
+const CACHE='riftbound-vault-shell-v78';
 const CORE_SHELL=[
   './',
   './index.html',

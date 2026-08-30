@@ -42,5 +42,9 @@
   }
 
   window.RiftboundThemeAssets={load,switchTo,getLoadedTheme:()=>loadedTheme};
-  load();
+  function bootTheme(){
+    if(window.RiftboundCloud?.getSession?.())load();
+  }
+  bootTheme();
+  window.addEventListener('riftbound-auth-storage-change',bootTheme);
 })();

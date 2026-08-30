@@ -132,6 +132,8 @@
   function setStatus(text,state='idle'){ensureStatus();const e=document.getElementById('cloudSyncStatus');if(e){e.textContent=text;e.dataset.state=state}renderCloudUI()}
   function openAuth(){ensureAuthDialog();document.getElementById('cloudAuthMessage').textContent='';document.getElementById('cloudAuthDialog').showModal()}
 
+  ensureAuthDialog();
+
   document.addEventListener('click',async e=>{
     if(e.target.closest('[data-cloud-close]')){document.getElementById('cloudAuthDialog')?.close();return}
     if(e.target.closest('#cloudAccountBtn')){if(session){const yes=confirm('Sign out of this account?');if(yes)await signOut()}else openAuth();return}

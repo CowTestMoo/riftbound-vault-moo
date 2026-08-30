@@ -75,7 +75,11 @@
 
   function init(){
     ensureCheckbox();
-    const observer=new MutationObserver(ensureCheckbox);
+    if(document.getElementById('cloudStaySignedIn'))return;
+    const observer=new MutationObserver(()=>{
+      ensureCheckbox();
+      if(document.getElementById('cloudStaySignedIn'))observer.disconnect();
+    });
     observer.observe(document.body,{childList:true,subtree:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

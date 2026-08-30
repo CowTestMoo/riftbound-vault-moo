@@ -28,5 +28,5 @@
   window.addEventListener('riftbound-cloud-restored',syncGate);
 
   function init(){ensureScreen();syncGate()}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  init();
 })();

@@ -71,10 +71,7 @@ function pruneFilterPreferences(){
   filters.sets=filters.sets.filter(value=>catalogSets.includes(value));
   if(JSON.stringify(filters)!==before)saveFilters();
 }
-function saveState(){
-  if(Array.isArray(state.transactions)&&state.transactions.length>500)state.transactions=state.transactions.slice(0,500);
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); signalUi('state'); renderStats();
-}
+function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); signalUi('state'); renderStats(); }
 function esc(v=''){ return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function norm(v=''){ return String(v).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,''); }
 function nameOf(c){ return c?.fullName || c?.name || c?.cardCode || 'Unknown card'; }

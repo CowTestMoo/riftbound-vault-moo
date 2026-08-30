@@ -1,12 +1,9 @@
-const CACHE='riftbound-vault-shell-v74';
-const SHELL=[
-  './','./index.html','./styles.css','./special-card-support.css','./polish.css','./cosmic-cleanup.css','./ux.css','./vault-features.css','./invite-lock.css','./spreadsheet-import.css','./bulk-entry.css','./storage-customizer.css','./social-libraries.css','./deck-viewer.css','./card-image-inspector.css','./ui-refinements.css','./theme-system.css','./friend-library-extras.css','./mobile-ui.css','./mobile-experience.css','./vault-compare.css','./manual-scanner.css','./theme-fixes.css','./header-actions.css','./rune-filters.css','./premade-decks.css','./danger-zone.css',
-  './polish.js','./theme-bootstrap.js','./theme-loader.js','./ux.js','./dashboard-toggles.js','./app.js','./special-card-support.js','./battlefield-ui-fix.js','./app-bridge.js','./inventory-quantity.js','./deck-viewer.js','./storage-customizer.js','./storage-divider-order.js','./auth-session-pref.js','./cloud-sync.js','./invite-lock.js','./vault-features.js','./spreadsheet-import.js','./bulk-entry.js','./smart-import-badges.js','./export-enhancer.js','./social-libraries.js','./username-colors.js','./utility-controls.js','./theme-system-v3.js','./profile-switching.js','./friend-library-extras.js','./ipad-scroll-fix.js','./mobile-ui.js','./mobile-experience.js','./live-values.js','./manual-scanner.js','./vault-compare.js','./rune-filters.js','./premade-decks.js','./danger-zone.js','./manifest.json','./icon.svg'
-];
+const CACHE='riftbound-vault-shell-v75';
+const CORE_SHELL=['./','./index.html','./styles.css','./manifest.json','./icon.svg'];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)));
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE_SHELL)));
 });
 
 self.addEventListener('activate',event=>{
@@ -24,8 +21,10 @@ self.addEventListener('fetch',event=>{
     event.respondWith(
       fetch(event.request)
         .then(response=>{
-          const copy=response.clone();
-          caches.open(CACHE).then(cache=>cache.put(event.request,copy));
+          if(response.ok){
+            const copy=response.clone();
+            event.waitUntil(caches.open(CACHE).then(cache=>cache.put(event.request,copy)));
+          }
           return response;
         })
         .catch(()=>caches.match(event.request))

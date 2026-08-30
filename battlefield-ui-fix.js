@@ -28,13 +28,14 @@
   }
 
   function decorateImage(img){
-    if(!isBattlefieldImage(img))return;
+    const battlefield=isBattlefieldImage(img);
+    if(img?.id==='cardImageInspectorImage')document.getElementById('cardImageInspector')?.classList.toggle('battlefield-inspector',battlefield);
+    if(!battlefield)return;
     img.classList.add('landscape-card-image');
     img.closest('.card-image-wrap')?.classList.add('landscape-card-image-wrap');
     img.closest('.card-tile,.friend-card,.deck-viewer-card,.recent-card')?.classList.add('landscape-card');
     img.closest('.detail-layout,.public-card-layout')?.classList.add('landscape-detail-layout');
     img.closest('.mobile-card-hero')?.classList.add('battlefield-mobile-card');
-    if(img.id==='cardImageInspectorImage')document.getElementById('cardImageInspector')?.classList.add('battlefield-inspector');
   }
 
   function decorate(root){

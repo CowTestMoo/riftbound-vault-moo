@@ -3,7 +3,7 @@
 
   const APP_KEY='riftbound-vault-v2';
   const KNOWN_DOMAINS=['Fury','Calm','Mind','Body','Chaos','Order'];
-  const ALLOWED_RULES=['All','Units','Other','Champions','Legends','Spells','Gear','Runes','Battlefields','Tokens'];
+  const ALLOWED_RULES=['All','Units','Other','Champions','Legends','Spells','Gear','Runes','Battlefields','Tokens','TokensMaps'];
   const originalShowCard=window.showCard;
   let migrationTimer=0;
 
@@ -14,8 +14,7 @@
   function recommendedStorageBoxes(){
     return [
       {id:'box-legends',name:'Legends',domains:[],rule:'Legends'},
-      {id:'box-battlefields',name:'Battlefields / Maps',domains:[],rule:'Battlefields'},
-      {id:'box-tokens',name:'Tokens',domains:[],rule:'Tokens'},
+      {id:'box-tokens-maps',name:'Tokens + Battlefields / Maps',domains:[],rule:'TokensMaps'},
       ...KNOWN_DOMAINS.map(domain=>({id:`box-${domain.toLowerCase()}`,name:`${domain} Cards`,domains:[domain],rule:'All'}))
     ];
   }
@@ -48,8 +47,9 @@
   function ruleMatches(box,card){
     if(!boxDomainMatches(box,card))return false;
     const cls=storageClass(card);
-    if(box.rule==='All')return true;
+    if(box.rule==='All')return !['Legends','Battlefields','Tokens'].includes(cls);
     if(box.rule==='Other')return !['Units','Legends','Battlefields','Tokens'].includes(cls);
+    if(box.rule==='TokensMaps')return cls==='Tokens'||cls==='Battlefields';
     return box.rule===cls;
   }
 
@@ -65,7 +65,13 @@
 
   function specialFirstLocation(card,boxes){
     const cls=storageClass(card);
-    if(['Legends','Battlefields','Tokens'].includes(cls)){
+    if(cls==='Legends'){
+      const exact=boxes.findIndex(box=>box.rule==='Legends'&&boxDomainMatches(box,card));
+      if(exact>=0)return exact;
+    }
+    if(cls==='Battlefields'||cls==='Tokens'){
+      const combined=boxes.findIndex(box=>box.rule==='TokensMaps'&&boxDomainMatches(box,card));
+      if(combined>=0)return combined;
       const exact=boxes.findIndex(box=>box.rule===cls&&boxDomainMatches(box,card));
       if(exact>=0)return exact;
     }
@@ -81,6 +87,15 @@
     return KNOWN_DOMAINS.every((domain,i)=>isLegacyPair(boxes[i*2],domain,'Units')&&isLegacyPair(boxes[i*2+1],domain,'Other'));
   }
 
+  function isNineSectionRecommended(boxes){
+    if(!Array.isArray(boxes)||boxes.length!==9)return false;
+    const hasLegend=boxes.some(box=>box?.rule==='Legends'&&!box?.domains?.length);
+    const hasBattlefield=boxes.some(box=>box?.rule==='Battlefields'&&!box?.domains?.length);
+    const hasToken=boxes.some(box=>box?.rule==='Tokens'&&!box?.domains?.length);
+    const domainsOkay=KNOWN_DOMAINS.every(domain=>boxes.some(box=>box?.rule==='All'&&box?.domains?.length===1&&box.domains[0]===domain));
+    return hasLegend&&hasBattlefield&&hasToken&&domainsOkay;
+  }
+
   function isPreviousRecommended(boxes){
     if(!Array.isArray(boxes))return false;
     const specialRules=new Set(['Legends','Battlefields','Tokens']);
@@ -91,7 +106,7 @@
   }
 
   function shouldUpgrade(boxes){
-    return !Array.isArray(boxes)||!boxes.length||isLegacyTwelve(boxes)||isPreviousRecommended(boxes);
+    return !Array.isArray(boxes)||!boxes.length||isLegacyTwelve(boxes)||isPreviousRecommended(boxes)||isNineSectionRecommended(boxes);
   }
 
   function migrateRecommendedLayout(){
@@ -99,7 +114,7 @@
     try{saved=JSON.parse(localStorage.getItem(APP_KEY)||'{}')}catch{saved={}}
     if(!shouldUpgrade(saved.storageBoxes))return false;
     saved.storageBoxes=recommendedStorageBoxes();
-    saved.storageLayoutVersion=3;
+    saved.storageLayoutVersion=4;
     localStorage.setItem(APP_KEY,JSON.stringify(saved));
     window.RiftboundApp?.reloadState?.();
     return true;
@@ -134,7 +149,7 @@
   };
   window.describeStorageBox=box=>{
     const domainText=box?.domains?.length?box.domains.join(' + '):'Any domain';
-    const labels={All:'All regular cards',Other:'Other standard cards',Legends:'Legends',Battlefields:'Battlefields / Maps',Tokens:'Tokens'};
+    const labels={All:'All regular cards',Other:'Other standard cards',Legends:'Legends',Battlefields:'Battlefields / Maps',Tokens:'Tokens',TokensMaps:'Tokens + Battlefields / Maps'};
     return `${domainText} • ${labels[box?.rule]||box?.rule||'All cards'}`;
   };
 

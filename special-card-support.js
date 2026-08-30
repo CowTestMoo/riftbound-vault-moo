@@ -1,13 +1,24 @@
 (() => {
   'use strict';
 
+  const APP_KEY='riftbound-vault-v2';
   const KNOWN_DOMAINS=['Fury','Calm','Mind','Body','Chaos','Order'];
   const ALLOWED_RULES=['All','Units','Other','Champions','Legends','Spells','Gear','Runes','Battlefields','Tokens'];
   const originalShowCard=window.showCard;
+  let migrationTimer=0;
 
   const escapeHtml=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const cardName=c=>c?.fullName||c?.name||c?.cardCode||'Unknown card';
   const lower=v=>String(v||'').toLowerCase();
+
+  function recommendedStorageBoxes(){
+    return [
+      {id:'box-legends',name:'Legends',domains:[],rule:'Legends'},
+      {id:'box-battlefields',name:'Battlefields / Maps',domains:[],rule:'Battlefields'},
+      {id:'box-tokens',name:'Tokens',domains:[],rule:'Tokens'},
+      ...KNOWN_DOMAINS.map(domain=>({id:`box-${domain.toLowerCase()}`,name:`${domain} Cards`,domains:[domain],rule:'All'}))
+    ];
+  }
 
   function domainsOf(card){
     const list=Array.isArray(card?.domains)?card.domains:(card?.domain?[card.domain]:[]);
@@ -38,14 +49,12 @@
     if(!boxDomainMatches(box,card))return false;
     const cls=storageClass(card);
     if(box.rule==='All')return true;
-    if(box.rule==='Other')return !['Units','Legends','Battlefields'].includes(cls);
+    if(box.rule==='Other')return !['Units','Legends','Battlefields','Tokens'].includes(cls);
     return box.rule===cls;
   }
 
   function normalizeBoxes(value){
-    const source=Array.isArray(value)
-      ? value
-      : (typeof defaultStorageBoxes==='function'?defaultStorageBoxes():[]);
+    const source=Array.isArray(value)?value:recommendedStorageBoxes();
     return source.map((box,i)=>({
       id:String(box?.id||`box-${i+1}-${Math.random().toString(36).slice(2,6)}`),
       name:String(box?.name||`Box ${i+1}`),
@@ -56,13 +65,52 @@
 
   function specialFirstLocation(card,boxes){
     const cls=storageClass(card);
-    if(['Legends','Battlefields'].includes(cls)){
+    if(['Legends','Battlefields','Tokens'].includes(cls)){
       const exact=boxes.findIndex(box=>box.rule===cls&&boxDomainMatches(box,card));
       if(exact>=0)return exact;
     }
     return boxes.findIndex(box=>ruleMatches(box,card));
   }
 
+  function isLegacyPair(box,domain,rule){
+    return !!box&&box.rule===rule&&Array.isArray(box.domains)&&box.domains.length===1&&box.domains[0]===domain;
+  }
+
+  function isLegacyTwelve(boxes){
+    if(!Array.isArray(boxes)||boxes.length!==12)return false;
+    return KNOWN_DOMAINS.every((domain,i)=>isLegacyPair(boxes[i*2],domain,'Units')&&isLegacyPair(boxes[i*2+1],domain,'Other'));
+  }
+
+  function isPreviousRecommended(boxes){
+    if(!Array.isArray(boxes))return false;
+    const specialRules=new Set(['Legends','Battlefields','Tokens']);
+    const regular=boxes.filter(box=>!specialRules.has(box?.rule));
+    const hasLegend=boxes.some(box=>box?.rule==='Legends'&&!box?.domains?.length);
+    const hasBattlefield=boxes.some(box=>box?.rule==='Battlefields'&&!box?.domains?.length);
+    return hasLegend&&hasBattlefield&&isLegacyTwelve(regular);
+  }
+
+  function shouldUpgrade(boxes){
+    return !Array.isArray(boxes)||!boxes.length||isLegacyTwelve(boxes)||isPreviousRecommended(boxes);
+  }
+
+  function migrateRecommendedLayout(){
+    let saved;
+    try{saved=JSON.parse(localStorage.getItem(APP_KEY)||'{}')}catch{saved={}}
+    if(!shouldUpgrade(saved.storageBoxes))return false;
+    saved.storageBoxes=recommendedStorageBoxes();
+    saved.storageLayoutVersion=3;
+    localStorage.setItem(APP_KEY,JSON.stringify(saved));
+    window.RiftboundApp?.reloadState?.();
+    return true;
+  }
+
+  function scheduleMigration(){
+    clearTimeout(migrationTimer);
+    migrationTimer=setTimeout(()=>migrateRecommendedLayout(),0);
+  }
+
+  window.defaultStorageBoxes=recommendedStorageBoxes;
   window.cardStorageClass=storageClass;
   window.cardDomain=card=>{
     const domains=domainsOf(card);
@@ -73,7 +121,7 @@
   window.storageRuleMatches=ruleMatches;
   window.sectionFor=card=>{
     const cls=storageClass(card);
-    if(cls==='Units')return `Energy ${Number(card?.energy)>=6?'6+':(card?.energy??'?')}`;
+    if(cls==='Units')return `Units • Energy ${Number(card?.energy)>=6?'6+':(card?.energy??'?')}`;
     if(cls==='Battlefields')return 'Battlefields / Maps';
     return cls;
   };
@@ -86,7 +134,7 @@
   };
   window.describeStorageBox=box=>{
     const domainText=box?.domains?.length?box.domains.join(' + '):'Any domain';
-    const labels={All:'All cards',Other:'Other standard cards',Legends:'Legends',Battlefields:'Battlefields / Maps'};
+    const labels={All:'All regular cards',Other:'Other standard cards',Legends:'Legends',Battlefields:'Battlefields / Maps',Tokens:'Tokens'};
     return `${domainText} • ${labels[box?.rule]||box?.rule||'All cards'}`;
   };
 
@@ -111,5 +159,13 @@
     };
   }
 
-  window.RiftboundSpecialCards={storageClass,isLandscape:card=>storageClass(card)==='Battlefields'};
+  window.RiftboundSpecialCards={
+    storageClass,
+    isLandscape:card=>storageClass(card)==='Battlefields',
+    recommendedStorageBoxes,
+    migrateRecommendedLayout
+  };
+
+  migrateRecommendedLayout();
+  window.addEventListener('riftbound-cloud-restored',scheduleMigration);
 })();

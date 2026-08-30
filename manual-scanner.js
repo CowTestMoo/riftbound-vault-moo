@@ -14,6 +14,11 @@
     return document.querySelector('[data-tool="scanner"].active')!==null;
   }
 
+  function updateToolsCopy(){
+    const heading=document.querySelector('#toolsView .section-heading p');
+    if(heading)heading.textContent='Wishlist, history, card search, and collection values.';
+  }
+
   function searchCards(value){
     const needle=norm(value).trim();
     if(!needle)return [];
@@ -64,6 +69,7 @@
   }
 
   function renderScanner(){
+    updateToolsCopy();
     if(!toolIsScanner())return;
     const panel=document.getElementById('toolPanel');
     if(!panel)return;
@@ -91,8 +97,7 @@
     const changed=Math.max(0,owned(code)-before);
     const status=document.getElementById('manualScannerStatus');
     if(status)status.textContent=changed?`Added ${changed}× ${nameOf(card)}.`:'No copies were added.';
-    window.RiftboundTheme?.play?.('add');
-    window.RiftboundNeonFX?.trigger?.('inventory');
+    if(changed){window.RiftboundTheme?.play?.('add');window.RiftboundNeonFX?.trigger?.('inventory')}
     renderResults();
   }
 
@@ -118,7 +123,9 @@
   window.addEventListener('riftbound-tool-render',event=>{
     if(event.detail?.tool==='scanner')requestAnimationFrame(renderScanner);
   });
+  window.addEventListener('riftbound-catalog-ready',()=>{if(toolIsScanner())requestAnimationFrame(renderScanner)});
   window.addEventListener('riftbound-cloud-restored',()=>{if(toolIsScanner())setTimeout(renderScanner,40)});
 
+  updateToolsCopy();
   window.RiftboundManualScanner={render:renderScanner};
 })();

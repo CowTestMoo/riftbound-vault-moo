@@ -1,5 +1,5 @@
 const CACHE_PREFIX='riftbound-vault-';
-const CACHE='riftbound-vault-shell-v76';
+const CACHE='riftbound-vault-shell-v77';
 const CORE_SHELL=[
   './',
   './index.html',
@@ -27,30 +27,64 @@ self.addEventListener('activate',event=>{
   );
 });
 
+function cacheResponse(request,response,event){
+  if(!response?.ok)return;
+  const copy=response.clone();
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,copy)));
+}
+
+async function networkFirst(request,event){
+  try{
+    const response=await fetch(request);
+    cacheResponse(request,response,event);
+    return response;
+  }catch{
+    const cached=await caches.match(request);
+    if(cached)return cached;
+    const url=new URL(request.url);
+    if(request.mode==='navigate'||url.pathname.endsWith('/index.html'))return caches.match('./index.html');
+    throw new Error('Offline and no cached response available.');
+  }
+}
+
+async function staleWhileRevalidate(request,event){
+  const cached=await caches.match(request);
+  const network=fetch(request)
+    .then(response=>{
+      cacheResponse(request,response,event);
+      return response;
+    })
+    .catch(()=>null);
+
+  if(cached){
+    event.waitUntil(network.then(()=>{}));
+    return cached;
+  }
+
+  const response=await network;
+  if(response)return response;
+  throw new Error('Offline and no cached response available.');
+}
+
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET')return;
 
   const url=new URL(event.request.url);
   if(url.origin!==self.location.origin)return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then(response=>{
-        if(response.ok){
-          const copy=response.clone();
-          event.waitUntil(caches.open(CACHE).then(cache=>cache.put(event.request,copy)));
-        }
-        return response;
-      })
-      .catch(async()=>{
-        const cached=await caches.match(event.request);
-        if(cached)return cached;
+  if(event.request.mode==='navigate'){
+    event.respondWith(networkFirst(event.request,event));
+    return;
+  }
 
-        if(event.request.mode==='navigate'){
-          return caches.match('./index.html');
-        }
+  const destination=event.request.destination;
+  const isStatic=['script','style','image','font','manifest'].includes(destination);
+  const isAppData=url.pathname.endsWith('/data/cards.json')||url.pathname.endsWith('/data/prices.json');
 
-        throw new Error('Offline and no cached response available.');
-      })
-  );
+  if(isStatic||isAppData){
+    event.respondWith(staleWhileRevalidate(event.request,event));
+    return;
+  }
+
+  event.respondWith(networkFirst(event.request,event));
 });

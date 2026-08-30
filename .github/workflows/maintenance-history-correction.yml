@@ -1,0 +1,36 @@
+name: Maintenance History Correction
+
+on:
+  push:
+    paths:
+      - '.github/workflows/maintenance-history-correction.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: ${{ github.event.head_commit.message != 'Preserve full activity history' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove accidental history cap
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('app.js')
+          text = path.read_text()
+          old = """function saveState(){\n  if(Array.isArray(state.transactions)&&state.transactions.length>500)state.transactions=state.transactions.slice(0,500);\n  localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); signalUi('state'); renderStats();\n}"""
+          new = "function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); signalUi('state'); renderStats(); }"
+          if old not in text:
+              raise SystemExit('Expected temporary history cap was not found; refusing to change app.js.')
+          path.write_text(text.replace(old, new, 1))
+      - name: Commit correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js
+          git commit -m "Preserve full activity history"
+          git push

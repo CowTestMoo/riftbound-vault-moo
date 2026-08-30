@@ -2,7 +2,7 @@
 
 const STORAGE_KEY = 'riftbound-vault-v2';
 const FILTER_STORAGE_KEY = 'riftbound-card-filters-v2';
-const PAGE_SIZE = 60;
+const PAGE_SIZE = window.matchMedia('(max-width:900px), (pointer:coarse)').matches ? 24 : 60;
 const DOMAINS = ['Fury','Calm','Mind','Body','Chaos','Order'];
 const TYPES = ['All','Legend','Unit','Rune','Spell','Gear','Battlefield','Token'];
 let catalog = [];

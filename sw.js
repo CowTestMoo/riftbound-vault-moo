@@ -1,11 +1,12 @@
 const CACHE_PREFIX='riftbound-vault-';
-const CACHE='riftbound-vault-shell-v79';
+const CACHE='riftbound-vault-shell-v80';
 const CORE_SHELL=[
   './',
   './index.html',
   './login.html',
   './auth-boot.js',
   './styles.css',
+  './mobile-performance.css',
   './manifest.json',
   './icon.svg',
   './icon-192.png',

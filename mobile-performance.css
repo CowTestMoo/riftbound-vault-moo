@@ -1,0 +1,33 @@
+/* Mobile performance mode: preserve layout/theme colors, remove expensive continuous GPU work. */
+@media (max-width:900px), (pointer:coarse){
+  #cosmicSky{display:none!important}
+
+  .topbar::before,.topbar::after,
+  h1,h1::after,
+  .stats-strip::after,.stats-strip span,
+  .tab.active::after,.filter-chip.active::after,.primary-btn::after,
+  .storage-box::after,
+  .animated-username,
+  .empty-state::before,
+  .modal[open],.modal[open] .detail-image,.modal[open]::after,
+  .title-orbits span,
+  .dragon-core,.dragon-spine,.dragon-fin,.dragon-head,.dragon-eye,.dragon-orbit,.dragon-star,
+  body.catalog-loading #cardGrid:empty::before,
+  body.catalog-loading #cardGrid:empty::after{
+    animation:none!important;
+  }
+
+  .topbar,.stats-strip,.search-wrap,.storage-box,.list-card,.modal,
+  .vault-lock-screen,.friend-header,.friend-chooser-card,.friend-stats div,
+  .friend-filters,.mobile-sheet{
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+
+  body::after{mix-blend-mode:normal!important}
+  .dragon-stage{display:none!important}
+  .library-transition{display:none!important}
+  .card-image-wrap{will-change:auto!important}
+  .card-tile:hover .card-image-wrap,.storage-box[data-domain]:hover,button:hover{transform:none!important}
+  *{scroll-behavior:auto!important}
+}

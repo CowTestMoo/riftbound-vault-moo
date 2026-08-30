@@ -13,7 +13,7 @@
   function stripLegacyDeckPrivacyControls(root=document){root.querySelectorAll?.(LEGACY_DECK_PRIVACY_SELECTORS).forEach(element=>(element.closest('.setting-row,.feature-form-grid>label,.feature-editor>label,label')||element).remove())}
   function removeTradingUi(){
     document.querySelectorAll('[data-tool="trades"]').forEach(button=>button.remove());
-    const heading=document.querySelector('#toolsView .section-heading p');if(heading)heading.textContent='Wishlist, history, camera assist, and collection values.';
+    const heading=document.querySelector('#toolsView .section-heading p');if(heading)heading.textContent='Wishlist, history, card search, and collection values.';
     const dialog=document.getElementById('tradeDialog');if(dialog){if(dialog.open)dialog.close();dialog.remove()}
     if(document.querySelector('#newTradeBtn,.trade-list,.trade-editor-columns'))document.querySelector('[data-tool="wishlist"]')?.click();
   }

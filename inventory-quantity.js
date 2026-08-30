@@ -36,11 +36,14 @@
     enhanceBulkRows();
   }
 
-  function add(code,selector,reason){
-    const input=document.querySelector(`${selector}[data-code="${CSS.escape(code)}"], ${selector}[data-custom-card-qty="${CSS.escape(code)}"], ${selector}[data-custom-bulk-qty="${CSS.escape(code)}"]`);
-    const qty=clamp(input?.value);
-    window.RiftboundApp?.adjustOwned?.(code,qty,reason);
-    if(document.getElementById('cardDialog')?.open)window.RiftboundApp?.showCard?.(code);
+  function addCustomCard(code,input){
+    window.RiftboundApp?.adjustOwned?.(code,clamp(input?.value),'Custom quantity');
+    window.RiftboundApp?.showCard?.(code);
+    setTimeout(refresh,0);
+  }
+
+  function addCustomBulk(code,input){
+    window.RiftboundApp?.adjustOwned?.(code,clamp(input?.value),'Bulk custom quantity');
     setTimeout(refresh,0);
   }
 
@@ -48,18 +51,13 @@
     const card=event.target.closest?.('[data-custom-card-add]');
     if(card){
       const code=card.dataset.customCardAdd;
-      const input=document.querySelector(`[data-custom-card-qty="${CSS.escape(code)}"]`);
-      window.RiftboundApp?.adjustOwned?.(code,clamp(input?.value),'Custom quantity');
-      window.RiftboundApp?.showCard?.(code);
-      setTimeout(refresh,0);
+      addCustomCard(code,document.querySelector(`[data-custom-card-qty="${CSS.escape(code)}"]`));
       return;
     }
     const bulk=event.target.closest?.('[data-custom-bulk-add]');
     if(bulk){
       const code=bulk.dataset.customBulkAdd;
-      const input=document.querySelector(`[data-custom-bulk-qty="${CSS.escape(code)}"]`);
-      window.RiftboundApp?.adjustOwned?.(code,clamp(input?.value),'Bulk custom quantity');
-      setTimeout(refresh,0);
+      addCustomBulk(code,document.querySelector(`[data-custom-bulk-qty="${CSS.escape(code)}"]`));
     }
   },true);
 
@@ -67,15 +65,10 @@
     if(event.key!=='Enter')return;
     if(event.target.matches?.('[data-custom-card-qty]')){
       event.preventDefault();
-      const code=event.target.dataset.customCardQty;
-      window.RiftboundApp?.adjustOwned?.(code,clamp(event.target.value),'Custom quantity');
-      window.RiftboundApp?.showCard?.(code);
-      setTimeout(refresh,0);
+      addCustomCard(event.target.dataset.customCardQty,event.target);
     }else if(event.target.matches?.('[data-custom-bulk-qty]')){
       event.preventDefault();
-      const code=event.target.dataset.customBulkQty;
-      window.RiftboundApp?.adjustOwned?.(code,clamp(event.target.value),'Bulk custom quantity');
-      setTimeout(refresh,0);
+      addCustomBulk(event.target.dataset.customBulkQty,event.target);
     }
   });
 

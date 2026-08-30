@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#050714">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Sign In · Riftbound Vault</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#050714;color:#f4f5ff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{min-height:100dvh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#171c45 0,#090b1f 38%,#050714 72%)}.card{width:min(100%,420px);padding:28px;border:1px solid rgba(152,166,255,.28);border-radius:22px;background:rgba(11,14,35,.96);box-shadow:0 24px 70px rgba(0,0,0,.45)}.mark{font-size:28px;margin-bottom:8px;color:#c8d0ff}h1{font-size:29px;margin:0 0 6px}.sub{color:#aab3de;margin:0 0 24px;line-height:1.45}.field{display:block;margin:0 0 16px;font-size:14px;color:#d9ddf7}.field input{display:block;width:100%;margin-top:7px;padding:14px 15px;border:1px solid #343b72;border-radius:12px;background:#080b20;color:#fff;font:inherit;outline:none}.field input:focus{border-color:#7f91ff;box-shadow:0 0 0 3px rgba(127,145,255,.16)}.remember{display:flex;gap:9px;align-items:flex-start;margin:4px 0 20px;color:#c6cbea;font-size:14px}.remember input{margin-top:2px}button{width:100%;border:0;border-radius:12px;padding:14px 18px;font:700 16px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#eef0ff;color:#11162f;cursor:pointer}button:disabled{opacity:.58}.msg{min-height:22px;margin:14px 0 0;color:#b9c2ef;font-size:14px;line-height:1.4}.msg.error{color:#ffb9c1}.note{margin:22px 0 0;color:#7f89bb;font-size:12px;line-height:1.5;text-align:center}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark" aria-hidden="true">✦</div>
+    <h1>Riftbound Vault</h1>
+    <p class="sub">Sign in first. The card catalog and the rest of the vault will load only after authentication.</p>
+    <form id="loginForm">
+      <label class="field">Email<input id="email" name="email" type="email" autocomplete="username" inputmode="email" autocapitalize="none" required></label>
+      <label class="field">Password<input id="password" name="password" type="password" autocomplete="current-password" minlength="8" required></label>
+      <label class="remember"><input id="stay" type="checkbox"><span><strong>Stay signed in</strong><br>Keep this account signed in after closing the browser.</span></label>
+      <button id="submit" type="submit">Sign In</button>
+      <div id="message" class="msg" role="status" aria-live="polite"></div>
+    </form>
+    <p class="note">Invite-only vault. No catalog, images, themes, scanner, or collection data are loaded on this page.</p>
+  </main>
+<script>
+(() => {
+  'use strict';
+  const SUPABASE_URL='https://ivqtgclygiikagfuicjd.supabase.co';
+  const SUPABASE_KEY='sb_publishable_Iweuvn4mcU02xrDyPSJWig_uRWzAsfd';
+  const AUTH_KEY='riftbound-vault-auth-v1';
+  const PREF_KEY='riftbound-vault-stay-signed-in-v1';
+  const form=document.getElementById('loginForm');
+  const email=document.getElementById('email');
+  const password=document.getElementById('password');
+  const stay=document.getElementById('stay');
+  const submit=document.getElementById('submit');
+  const message=document.getElementById('message');
+
+  function readSession(){
+    try{return JSON.parse(localStorage.getItem(AUTH_KEY)||sessionStorage.getItem(AUTH_KEY)||'null')}catch{return null}
+  }
+  function validSession(s){return !!(s&&s.access_token&&s.refresh_token&&s.user)}
+  function destination(){return './?mobileauth=2'}
+  stay.checked=localStorage.getItem(PREF_KEY)==='1';
+  if(validSession(readSession())){location.replace(destination());return}
+
+  async function signIn(address,secret){
+    const res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password',{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email:address,password:secret})
+    });
+    let data=null;try{data=await res.json()}catch{}
+    if(!res.ok)throw new Error(data?.msg||data?.message||data?.error_description||data?.error||'Unable to sign in');
+    return data;
+  }
+
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    message.className='msg';message.textContent='Signing in…';submit.disabled=true;
+    try{
+      const data=await signIn(email.value.trim(),password.value);
+      const session={access_token:data.access_token,refresh_token:data.refresh_token,expiresAt:Date.now()+Number(data.expires_in||3600)*1000,user:data.user};
+      localStorage.setItem(PREF_KEY,stay.checked?'1':'0');
+      if(stay.checked){localStorage.setItem(AUTH_KEY,JSON.stringify(session));sessionStorage.removeItem(AUTH_KEY)}
+      else{sessionStorage.setItem(AUTH_KEY,JSON.stringify(session));localStorage.removeItem(AUTH_KEY)}
+      message.textContent='Signed in. Opening your vault…';
+      location.replace(destination());
+    }catch(err){
+      message.className='msg error';message.textContent=err?.message||'Unable to sign in';submit.disabled=false;password.select();
+    }
+  });
+})();
+</script>
+</body>
+</html>

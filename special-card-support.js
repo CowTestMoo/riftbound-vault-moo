@@ -3,7 +3,7 @@
 
   const APP_KEY='riftbound-vault-v2';
   const KNOWN_DOMAINS=['Fury','Calm','Mind','Body','Chaos','Order'];
-  const ALLOWED_RULES=['All','Units','Other','Champions','Legends','LegendsChampions','Spells','Gear','Runes','Battlefields','Tokens','TokensMaps','NoRune'];
+  const ALLOWED_RULES=['All','Units','Other','Champions','Legends','LegendsChampions','Spells','Gear','Runes','Battlefields','Tokens','TokensMaps'];
   const originalShowCard=window.showCard;
   let migrationTimer=0;
 
@@ -15,7 +15,6 @@
     return [
       {id:'box-legends-champions',name:'Legends + Champion Units',domains:[],rule:'LegendsChampions'},
       {id:'box-tokens-maps',name:'Tokens + Battlefields / Maps',domains:[],rule:'TokensMaps'},
-      {id:'box-no-rune',name:'No Rune / Colorless Cards',domains:[],rule:'NoRune'},
       ...KNOWN_DOMAINS.map(domain=>({id:`box-${domain.toLowerCase()}`,name:`${domain} Cards`,domains:[domain],rule:'All'}))
     ];
   }
@@ -45,18 +44,12 @@
     return box.domains.some(domain=>cardDomains.includes(domain));
   }
 
-  function isNoRuneRegular(card){
-    const cls=storageClass(card);
-    return domainsOf(card).length===0&&!['Legends','Champions','Battlefields','Tokens'].includes(cls);
-  }
-
   function ruleMatches(box,card){
-    const cls=storageClass(card);
-    if(box.rule==='NoRune')return isNoRuneRegular(card);
     if(!boxDomainMatches(box,card))return false;
+    const cls=storageClass(card);
     if(box.rule==='LegendsChampions')return cls==='Legends'||cls==='Champions';
     if(box.rule==='TokensMaps')return cls==='Tokens'||cls==='Battlefields';
-    if(box.rule==='All')return !['Legends','Champions','Battlefields','Tokens'].includes(cls)&&domainsOf(card).length>0;
+    if(box.rule==='All')return !['Legends','Champions','Battlefields','Tokens'].includes(cls);
     if(box.rule==='Other')return !['Units','Legends','Champions','Battlefields','Tokens'].includes(cls);
     return box.rule===cls;
   }
@@ -85,10 +78,6 @@
       const exact=boxes.findIndex(box=>box.rule===cls&&boxDomainMatches(box,card));
       if(exact>=0)return exact;
     }
-    if(isNoRuneRegular(card)){
-      const noRune=boxes.findIndex(box=>box.rule==='NoRune');
-      if(noRune>=0)return noRune;
-    }
     return boxes.findIndex(box=>ruleMatches(box,card));
   }
 
@@ -105,19 +94,22 @@
     return KNOWN_DOMAINS.every(domain=>boxes.some(box=>box?.rule==='All'&&box?.domains?.length===1&&box.domains[0]===domain));
   }
 
-  function isEightSectionRecommended(boxes){
-    if(!Array.isArray(boxes)||boxes.length!==8)return false;
-    const hasLegend=boxes.some(box=>box?.rule==='Legends'&&!box?.domains?.length);
-    const hasCombined=boxes.some(box=>box?.rule==='TokensMaps'&&!box?.domains?.length);
-    return hasLegend&&hasCombined&&hasSixDomainSections(boxes);
+  function isCurrentNoRuneRecommended(boxes){
+    if(!Array.isArray(boxes)||boxes.length!==9)return false;
+    return boxes.some(box=>box?.rule==='LegendsChampions'&&!box?.domains?.length)
+      && boxes.some(box=>box?.rule==='TokensMaps'&&!box?.domains?.length)
+      && boxes.some(box=>box?.rule==='NoRune'&&!box?.domains?.length)
+      && hasSixDomainSections(boxes);
   }
 
-  function isNineSectionRecommended(boxes){
-    if(!Array.isArray(boxes)||boxes.length!==9)return false;
-    const hasLegend=boxes.some(box=>box?.rule==='Legends'&&!box?.domains?.length);
-    const hasBattlefield=boxes.some(box=>box?.rule==='Battlefields'&&!box?.domains?.length);
-    const hasToken=boxes.some(box=>box?.rule==='Tokens'&&!box?.domains?.length);
-    return hasLegend&&hasBattlefield&&hasToken&&hasSixDomainSections(boxes);
+  function isOlderRecommended(boxes){
+    if(!Array.isArray(boxes))return false;
+    const hasCombinedLC=boxes.some(box=>box?.rule==='LegendsChampions'&&!box?.domains?.length);
+    const hasCombinedTM=boxes.some(box=>box?.rule==='TokensMaps'&&!box?.domains?.length);
+    if(boxes.length===8&&hasCombinedLC&&hasCombinedTM&&hasSixDomainSections(boxes))return true;
+    if(boxes.length===8&&boxes.some(box=>box?.rule==='Legends'&&!box?.domains?.length)&&hasCombinedTM&&hasSixDomainSections(boxes))return true;
+    if(boxes.length===9&&boxes.some(box=>box?.rule==='Legends'&&!box?.domains?.length)&&boxes.some(box=>box?.rule==='Battlefields'&&!box?.domains?.length)&&boxes.some(box=>box?.rule==='Tokens'&&!box?.domains?.length)&&hasSixDomainSections(boxes))return true;
+    return false;
   }
 
   function isPreviousRecommended(boxes){
@@ -130,7 +122,7 @@
   }
 
   function shouldUpgrade(boxes){
-    return !Array.isArray(boxes)||!boxes.length||isLegacyTwelve(boxes)||isPreviousRecommended(boxes)||isNineSectionRecommended(boxes)||isEightSectionRecommended(boxes);
+    return !Array.isArray(boxes)||!boxes.length||isLegacyTwelve(boxes)||isPreviousRecommended(boxes)||isOlderRecommended(boxes)||isCurrentNoRuneRecommended(boxes);
   }
 
   function migrateRecommendedLayout(){
@@ -138,7 +130,7 @@
     try{saved=JSON.parse(localStorage.getItem(APP_KEY)||'{}')}catch{saved={}}
     if(!shouldUpgrade(saved.storageBoxes))return false;
     saved.storageBoxes=recommendedStorageBoxes();
-    saved.storageLayoutVersion=5;
+    saved.storageLayoutVersion=6;
     localStorage.setItem(APP_KEY,JSON.stringify(saved));
     window.RiftboundApp?.reloadState?.();
     return true;
@@ -154,15 +146,14 @@
   window.cardDomain=card=>{
     const domains=domainsOf(card);
     if(storageClass(card)==='Legends'&&domains.length>1)return domains.join(' + ');
-    return domains[0]||'No Rune';
+    return domains[0]||'Unassigned';
   };
   window.normalizeStorageBoxes=normalizeBoxes;
   window.storageRuleMatches=ruleMatches;
   window.sectionFor=card=>{
     const cls=storageClass(card);
-    if(cls==='Units')return `Units • Energy ${Number(card?.energy)>=6?'6+':(card?.energy??'?')}`;
     if(cls==='Battlefields')return 'Battlefields / Maps';
-    if(isNoRuneRegular(card))return `No Rune • ${cls}`;
+    if(cls==='Gear')return 'Gear / Items';
     return cls;
   };
   window.locationFor=(card,boxes=normalizeBoxes(window.RiftboundApp?.getState?.()?.storageBoxes))=>{
@@ -174,7 +165,7 @@
   };
   window.describeStorageBox=box=>{
     const domainText=box?.domains?.length?box.domains.join(' + '):'Any domain';
-    const labels={All:'All regular cards',Other:'Other standard cards',Legends:'Legends',Champions:'Champions',LegendsChampions:'Legends + Champion Units',Battlefields:'Battlefields / Maps',Tokens:'Tokens',TokensMaps:'Tokens + Battlefields / Maps',NoRune:'No Rune / Colorless Cards'};
+    const labels={All:'Units • Spells • Gear / Items • Runes • Other',Other:'Other standard cards',Legends:'Legends',Champions:'Champions',LegendsChampions:'Legends + Champion Units',Battlefields:'Battlefields / Maps',Tokens:'Tokens',TokensMaps:'Tokens + Battlefields / Maps'};
     return `${domainText} • ${labels[box?.rule]||box?.rule||'All cards'}`;
   };
 
@@ -202,7 +193,6 @@
   window.RiftboundSpecialCards={
     storageClass,
     isLandscape:card=>storageClass(card)==='Battlefields',
-    isNoRuneRegular,
     recommendedStorageBoxes,
     migrateRecommendedLayout
   };

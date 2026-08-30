@@ -4,8 +4,14 @@
   const rarityMap = new Map();
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
   let lastStats = new Map();
+  let statsQueued=false;
 
   const norm = v => String(v || '').trim().toLowerCase().replace(/\s+/g,'-');
+  const each=(root,selector,fn)=>{
+    if(root?.nodeType!==1&&root!==document)return;
+    if(root!==document&&root.matches?.(selector))fn(root);
+    root.querySelectorAll?.(selector).forEach(fn);
+  };
 
   function rarityClass(value){
     const r = norm(value);
@@ -36,44 +42,43 @@
   }
 
   function decorateCards(root=document){
-    root.querySelectorAll?.('.card-tile[data-card]').forEach(tile=>{
-      const rarity = rarityMap.get(tile.dataset.card);
-      if(rarity) tile.dataset.rarity = rarity;
+    each(root,'.card-tile[data-card]',tile=>{
+      const rarity=rarityMap.get(tile.dataset.card);
+      if(rarity)tile.dataset.rarity=rarity;
     });
   }
 
   function decorateStorage(root=document){
-    root.querySelectorAll?.('.storage-box').forEach(box=>{
-      const heading = box.querySelector('h3')?.textContent || '';
-      const domain = heading.trim().split(/\s+/)[0];
-      if(domain) box.dataset.domain = norm(domain);
+    each(root,'.storage-box',box=>{
+      const heading=box.querySelector('h3')?.textContent||'';
+      const domain=heading.trim().split(/\s+/)[0];
+      if(domain)box.dataset.domain=norm(domain);
     });
   }
 
   function celestialEmptyStates(root=document){
-    root.querySelectorAll?.('.empty-state').forEach(el=>{
+    each(root,'.empty-state',el=>{
       const text=(el.textContent||'').trim();
-      if(text==='No cards match these filters.') el.textContent='No cards found in this corner of the cosmos.';
-      else if(text==='No decks yet.') el.textContent='No decks are charting the stars yet.';
-      else if(text==='Nothing is currently loaned out.') el.textContent='All borrowed relics have returned to your orbit.';
-      else if(text==='No cards here yet.') el.textContent='This celestial vault is still waiting for its first card.';
+      if(text==='No cards match these filters.')el.textContent='No cards found in this corner of the cosmos.';
+      else if(text==='No decks yet.')el.textContent='No decks are charting the stars yet.';
+      else if(text==='Nothing is currently loaned out.')el.textContent='All borrowed relics have returned to your orbit.';
+      else if(text==='No cards here yet.')el.textContent='This celestial vault is still waiting for its first card.';
     });
   }
 
   function updateLoadingState(){
     const status=document.getElementById('catalogStatus');
-    if(!status) return;
-    const loading=/loading/i.test(status.textContent||'');
-    document.body.classList.toggle('catalog-loading',loading);
+    if(!status)return;
+    document.body.classList.toggle('catalog-loading',/loading/i.test(status.textContent||''));
   }
 
   function animateStatChanges(){
+    statsQueued=false;
     document.querySelectorAll('.stats-strip > div').forEach(cell=>{
       const span=cell.querySelector('span');
-      if(!span) return;
-      const prev=lastStats.get(span.id);
-      const now=span.textContent;
-      if(prev!==undefined && prev!==now && !reduce.matches){
+      if(!span)return;
+      const prev=lastStats.get(span.id),now=span.textContent;
+      if(prev!==undefined&&prev!==now&&!reduce.matches){
         cell.classList.remove('stat-changed');
         void cell.offsetWidth;
         cell.classList.add('stat-changed');
@@ -82,9 +87,10 @@
       lastStats.set(span.id,now);
     });
   }
+  function queueStats(){if(statsQueued)return;statsQueued=true;requestAnimationFrame(animateStatChanges)}
 
   function burstAt(x,y,rarity=''){
-    if(reduce.matches) return;
+    if(reduce.matches)return;
     const special=['epic','legendary','mythic'].includes(rarity)?'gold':['showcase','special','overnumbered'].includes(rarity)?'violet':'';
     const count=special?18:13;
     for(let i=0;i<count;i++){
@@ -92,7 +98,7 @@
       spark.className=`collection-burst ${special}`.trim();
       spark.style.left=`${x}px`;
       spark.style.top=`${y}px`;
-      spark.style.setProperty('--angle',`${(360/count)*i + Math.random()*18}deg`);
+      spark.style.setProperty('--angle',`${(360/count)*i+Math.random()*18}deg`);
       spark.style.setProperty('--distance',`${32+Math.random()*58}px`);
       spark.style.animationDelay=`${Math.random()*70}ms`;
       document.body.appendChild(spark);
@@ -102,28 +108,29 @@
 
   document.addEventListener('click',event=>{
     const add=event.target.closest('[data-adjust],[data-bulk]');
-    if(!add) return;
-    const delta=Number(add.dataset.adjust ?? add.dataset.bulk ?? 0);
-    if(delta<=0) return;
-    const rect=add.getBoundingClientRect();
-    const code=add.dataset.code || '';
+    if(!add)return;
+    const delta=Number(add.dataset.adjust??add.dataset.bulk??0);
+    if(delta<=0)return;
+    const rect=add.getBoundingClientRect(),code=add.dataset.code||'';
     burstAt(rect.left+rect.width/2,rect.top+rect.height/2,rarityMap.get(code)||'');
   },true);
 
   const observer=new MutationObserver(records=>{
-    let shouldDecorate=false;
-    let statTouched=false;
+    let stats=false,loading=false;
     for(const record of records){
-      if(record.type==='childList') shouldDecorate=true;
-      if(record.type==='characterData' || record.target.closest?.('.stats-strip')) statTouched=true;
+      if(record.target?.closest?.('.stats-strip'))stats=true;
+      if(record.target?.id==='catalogStatus'||record.target?.parentElement?.id==='catalogStatus')loading=true;
+      for(const node of record.addedNodes||[]){
+        if(node.nodeType!==1)continue;
+        decorateCards(node);
+        decorateStorage(node);
+        celestialEmptyStates(node);
+        if(node.matches?.('.stats-strip, .stats-strip *')||node.querySelector?.('.stats-strip'))stats=true;
+        if(node.id==='catalogStatus'||node.querySelector?.('#catalogStatus'))loading=true;
+      }
     }
-    if(shouldDecorate){
-      decorateCards(document);
-      decorateStorage(document);
-      celestialEmptyStates(document);
-      updateLoadingState();
-    }
-    if(statTouched || shouldDecorate) animateStatChanges();
+    if(stats)queueStats();
+    if(loading)updateLoadingState();
   });
 
   observer.observe(document.body,{childList:true,subtree:true,characterData:true});

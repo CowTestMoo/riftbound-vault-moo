@@ -36,14 +36,20 @@
   }
 
   function decorateCards(root=document){
-    root.querySelectorAll?.('.card-tile[data-card]').forEach(tile=>{
+    const tiles=[];
+    if(root.matches?.('.card-tile[data-card]'))tiles.push(root);
+    root.querySelectorAll?.('.card-tile[data-card]').forEach(tile=>tiles.push(tile));
+    tiles.forEach(tile=>{
       const rarity = rarityMap.get(tile.dataset.card);
       if(rarity) tile.dataset.rarity = rarity;
     });
   }
 
   function decorateStorage(root=document){
-    root.querySelectorAll?.('.storage-box').forEach(box=>{
+    const boxes=[];
+    if(root.matches?.('.storage-box'))boxes.push(root);
+    root.querySelectorAll?.('.storage-box').forEach(box=>boxes.push(box));
+    boxes.forEach(box=>{
       const heading = box.querySelector('h3')?.textContent || '';
       const domain = heading.trim().split(/\s+/)[0];
       if(domain) box.dataset.domain = norm(domain);
@@ -51,7 +57,10 @@
   }
 
   function celestialEmptyStates(root=document){
-    root.querySelectorAll?.('.empty-state').forEach(el=>{
+    const states=[];
+    if(root.matches?.('.empty-state'))states.push(root);
+    root.querySelectorAll?.('.empty-state').forEach(el=>states.push(el));
+    states.forEach(el=>{
       const text=(el.textContent||'').trim();
       if(text==='No cards match these filters.') el.textContent='No cards found in this corner of the cosmos.';
       else if(text==='No decks yet.') el.textContent='No decks are charting the stars yet.';
@@ -111,19 +120,29 @@
   },true);
 
   const observer=new MutationObserver(records=>{
-    let shouldDecorate=false;
     let statTouched=false;
+    let loadingTouched=false;
     for(const record of records){
-      if(record.type==='childList') shouldDecorate=true;
-      if(record.type==='characterData' || record.target.closest?.('.stats-strip')) statTouched=true;
+      if(record.type==='characterData'){
+        if(record.target.parentElement?.closest('.stats-strip'))statTouched=true;
+        if(record.target.parentElement?.closest('#catalogStatus'))loadingTouched=true;
+        continue;
+      }
+      if(record.target.closest?.('.stats-strip'))statTouched=true;
+      if(record.target.closest?.('#catalogStatus'))loadingTouched=true;
+      for(const node of record.addedNodes){
+        if(node.nodeType!==1)continue;
+        decorateCards(node);
+        decorateStorage(node);
+        celestialEmptyStates(node);
+        if(node.matches?.('.stats-strip,#catalogStatus')||node.querySelector?.('.stats-strip,#catalogStatus')){
+          statTouched ||= !!(node.matches?.('.stats-strip')||node.querySelector?.('.stats-strip'));
+          loadingTouched ||= !!(node.matches?.('#catalogStatus')||node.querySelector?.('#catalogStatus'));
+        }
+      }
     }
-    if(shouldDecorate){
-      decorateCards(document);
-      decorateStorage(document);
-      celestialEmptyStates(document);
-      updateLoadingState();
-    }
-    if(statTouched || shouldDecorate) animateStatChanges();
+    if(loadingTouched)updateLoadingState();
+    if(statTouched)animateStatChanges();
   });
 
   observer.observe(document.body,{childList:true,subtree:true,characterData:true});

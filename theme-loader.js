@@ -13,6 +13,13 @@
     try{return JSON.parse(localStorage.getItem(UX_KEY)||'{}').intensity==='neon'?'neon':'cosmic'}
     catch{return 'cosmic'}
   }
+  function mobilePerformanceMode(){
+    const coarse=window.matchMedia('(pointer: coarse)').matches;
+    const narrow=window.matchMedia('(max-width: 900px)').matches;
+    const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+    const constrained=!!connection?.saveData||/^(slow-2g|2g|3g)$/i.test(connection?.effectiveType||'');
+    return coarse||narrow||constrained;
+  }
   function addStyle(href,theme){
     if(document.querySelector(`link[data-theme-asset="${theme}"][href="${href}"]`))return;
     const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.themeAsset=theme;document.head.appendChild(link);
@@ -29,8 +36,15 @@
     loadedTheme=theme;
     loading=(async()=>{
       assets.styles.forEach(href=>addStyle(href,theme));
-      for(const src of assets.scripts)await addScript(src,theme);
-      window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme}}));
+      const performanceMode=mobilePerformanceMode();
+      if(!performanceMode){
+        for(const src of assets.scripts)await addScript(src,theme);
+      }else{
+        document.documentElement.dataset.mobilePerformance='1';
+        const canvas=document.getElementById('cosmicSky');
+        if(canvas){canvas.hidden=true;canvas.setAttribute('aria-hidden','true')}
+      }
+      window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme,performanceMode}}));
       return theme;
     })().catch(err=>{console.error('Theme assets failed to load',err);return theme});
     return loading;
@@ -41,7 +55,7 @@
     location.reload();
   }
 
-  window.RiftboundThemeAssets={load,switchTo,getLoadedTheme:()=>loadedTheme};
+  window.RiftboundThemeAssets={load,switchTo,getLoadedTheme:()=>loadedTheme,isMobilePerformanceMode:mobilePerformanceMode};
   function bootTheme(){
     if(window.RiftboundCloud?.getSession?.())load();
   }

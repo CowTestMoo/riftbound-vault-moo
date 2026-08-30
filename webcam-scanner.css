@@ -1,1 +1,69 @@
-.webcam-scanner-panel{margin:0 0 16px;padding:14px;border:1px solid rgba(124,230,255,.18);border-radius:16px;background:rgba(7,14,27,.94)}.webcam-scanner-head{display:flex;justify-content:space-between;gap:14px;margin-bottom:12px}.webcam-scanner-head small{display:block;color:var(--theme-accent);font-size:.56rem;font-weight:950;letter-spacing:.12em}.webcam-scanner-head h3{margin:2px 0 4px}.webcam-scanner-head p{margin:0;color:#8fa3c5;font-size:.72rem}.webcam-scanner-actions{display:flex;gap:7px}.webcam-scanner-layout{display:grid;grid-template-columns:minmax(320px,1.2fr) minmax(280px,.8fr);gap:14px}.webcam-stage{position:relative;min-height:330px;overflow:hidden;border:1px solid rgba(121,160,255,.16);border-radius:15px;background:#030712}.webcam-stage video{width:100%;height:100%;min-height:330px;object-fit:cover;background:#02050b}.webcam-card-guide{position:absolute;inset:8% 23%;border:1px solid rgba(255,255,255,.42);border-radius:14px;pointer-events:none}.webcam-card-guide span{position:absolute;width:28px;height:28px;border-color:var(--theme-accent);border-style:solid}.webcam-card-guide span:nth-child(1){left:-2px;top:-2px;border-width:3px 0 0 3px}.webcam-card-guide span:nth-child(2){right:-2px;top:-2px;border-width:3px 3px 0 0}.webcam-card-guide span:nth-child(3){left:-2px;bottom:-2px;border-width:0 0 3px 3px}.webcam-card-guide span:nth-child(4){right:-2px;bottom:-2px;border-width:0 3px 3px 0}.webcam-card-guide b{position:absolute;left:50%;bottom:-31px;transform:translateX(-50%);padding:5px 9px;border-radius:999px;background:rgba(2,7,16,.82);color:#d8e7f8;font-size:.62rem;white-space:nowrap}.webcam-scanner-status{position:absolute;left:10px;right:10px;bottom:10px;padding:9px 11px;border:1px solid rgba(121,160,255,.18);border-radius:10px;background:rgba(3,8,18,.88);color:#b9c8dc;font-size:.68rem;font-weight:850;text-align:center}.webcam-scanner-status[data-state="ready"]{color:#b7f5d7}.webcam-scanner-status[data-state="warning"]{color:#ffd79a}.webcam-scanner-status[data-state="error"]{color:#ffc0ca}.webcam-review{min-width:0;border:1px solid rgba(121,160,255,.13);border-radius:15px;background:rgba(5,10,21,.72);padding:13px}.webcam-empty-review,.webcam-reading,.webcam-error,.webcam-no-match,.webcam-added{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;padding:24px 12px}.webcam-empty-review small,.webcam-reading small,.webcam-error small,.webcam-no-match small,.webcam-added small{color:#8197b9}.webcam-reading span{width:30px;height:30px;border:3px solid rgba(124,230,255,.2);border-top-color:var(--theme-accent);border-radius:50%;animation:webcam-spin .8s linear infinite}.webcam-confirm>small,.webcam-quantity>small{display:block;color:var(--theme-accent);font-size:.57rem;font-weight:950;letter-spacing:.11em;margin-bottom:8px}.webcam-confirm-card{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center}.webcam-confirm-card.compact{grid-template-columns:82px 1fr}.webcam-confirm-card img{width:100%;aspect-ratio:63/88;object-fit:cover;border-radius:9px}.webcam-confirm-card h4{margin:0 0 4px}.webcam-confirm-card p,.webcam-confirm-card span{color:#8da2c3;font-size:.65rem}.webcam-confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}.webcam-confirm-actions .primary-btn{grid-column:1/-1}.webcam-alternatives{display:grid;gap:7px;margin-top:11px;max-height:310px;overflow:auto}.webcam-match-choice{display:grid;grid-template-columns:52px 1fr auto;gap:9px;align-items:center;width:100%;padding:7px;border:1px solid rgba(121,160,255,.14);border-radius:10px;background:rgba(8,15,29,.78);color:inherit;text-align:left}.webcam-match-choice img{width:52px;aspect-ratio:63/88;object-fit:cover;border-radius:6px}.webcam-match-choice strong,.webcam-match-choice small{display:block}.webcam-match-choice small{color:#7e94b7;font-size:.58rem}.webcam-match-choice>b{color:var(--theme-accent);font-size:.55rem}.webcam-quick-qty{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.webcam-quick-qty button{min-height:44px;border:1px solid rgba(121,160,255,.17);border-radius:10px;background:rgba(9,17,32,.8);color:#b8c8df;font-weight:900}.webcam-quick-qty button.active{border-color:var(--theme-accent);color:#fff}.webcam-custom-qty{display:grid;grid-template-columns:1fr 90px;align-items:center;gap:10px;margin:10px 0}.webcam-add-next{width:100%;min-height:44px;margin-bottom:7px}.webcam-scanner-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:11px}.webcam-scanner-footer span{color:#738aad;font-size:.62rem}@keyframes webcam-spin{to{transform:rotate(360deg)}}@media(max-width:820px){.webcam-scanner-head{display:grid}.webcam-scanner-layout{grid-template-columns:1fr}.webcam-stage,.webcam-stage video{min-height:300px}.webcam-review{min-height:240px}.webcam-scanner-footer{align-items:stretch;flex-direction:column}.webcam-scanner-footer button{width:100%}}@media(max-width:480px){.webcam-scanner-panel{padding:10px}.webcam-confirm-card{grid-template-columns:84px 1fr}.webcam-confirm-actions{grid-template-columns:1fr}.webcam-confirm-actions .primary-btn{grid-column:auto}}
+.webcam-scanner-panel{margin:0 0 22px;padding:20px;border:1px solid rgba(124,230,255,.22);border-radius:20px;background:rgba(7,14,27,.96)}
+.webcam-scanner-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:16px}
+.webcam-scanner-head small{display:block;color:var(--theme-accent);font-size:.68rem;font-weight:950;letter-spacing:.14em}
+.webcam-scanner-head h3{margin:4px 0 6px;font-size:1.45rem}
+.webcam-scanner-head p{max-width:720px;margin:0;color:#9cafca;font-size:.88rem;line-height:1.5}
+.webcam-scanner-actions{display:flex;gap:9px;flex-wrap:wrap}
+.webcam-start-btn{min-height:50px;padding-inline:22px;font-size:.86rem}
+.webcam-camera-select-wrap{margin:0 0 14px;padding:10px 12px;border:1px solid rgba(121,160,255,.14);border-radius:12px;background:rgba(6,12,23,.7)}
+.webcam-camera-select-wrap label{display:grid;grid-template-columns:auto minmax(220px,420px);gap:10px;align-items:center;color:#a9bdd8;font-size:.76rem;font-weight:850}
+.webcam-camera-select-wrap select{min-height:42px}
+.webcam-scanner-layout{display:grid;grid-template-columns:minmax(560px,1.45fr) minmax(360px,.8fr);gap:18px;align-items:stretch}
+.webcam-stage{position:relative;min-height:560px;overflow:hidden;border:1px solid rgba(121,160,255,.2);border-radius:18px;background:#020611}
+.webcam-stage video{display:block;width:100%;height:100%;min-height:560px;object-fit:cover;background:#01040a}
+.webcam-card-guide{position:absolute;left:50%;top:5%;height:82%;aspect-ratio:63/88;transform:translateX(-50%);border:2px solid rgba(255,255,255,.44);border-radius:16px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.14)}
+.webcam-card-guide span{position:absolute;width:42px;height:42px;border-color:var(--theme-accent);border-style:solid}
+.webcam-card-guide span:nth-child(1){left:-3px;top:-3px;border-width:4px 0 0 4px;border-radius:13px 0 0 0}
+.webcam-card-guide span:nth-child(2){right:-3px;top:-3px;border-width:4px 4px 0 0;border-radius:0 13px 0 0}
+.webcam-card-guide span:nth-child(3){left:-3px;bottom:-3px;border-width:0 0 4px 4px;border-radius:0 0 0 13px}
+.webcam-card-guide span:nth-child(4){right:-3px;bottom:-3px;border-width:0 4px 4px 0;border-radius:0 0 13px 0}
+.webcam-card-guide b{position:absolute;left:50%;bottom:-38px;transform:translateX(-50%);padding:7px 12px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(2,7,16,.9);color:#e6f2ff;font-size:.72rem;white-space:nowrap}
+.webcam-scanner-status{position:absolute;left:16px;right:16px;bottom:16px;padding:12px 14px;border:1px solid rgba(121,160,255,.2);border-radius:12px;background:rgba(3,8,18,.92);color:#c2d0e4;font-size:.79rem;font-weight:900;text-align:center;backdrop-filter:blur(7px)}
+.webcam-scanner-status[data-state="ready"]{color:#baf7d9;border-color:rgba(92,225,159,.3)}
+.webcam-scanner-status[data-state="warning"]{color:#ffdaa0;border-color:rgba(255,196,95,.28)}
+.webcam-scanner-status[data-state="error"]{color:#ffc1cb;border-color:rgba(255,104,132,.28)}
+.webcam-scanner-status[data-state="waiting"]{color:#cbd6ff}
+.webcam-review{min-width:0;min-height:560px;border:1px solid rgba(121,160,255,.16);border-radius:18px;background:rgba(5,10,21,.78);padding:18px}
+.webcam-empty-review,.webcam-reading,.webcam-error,.webcam-no-match,.webcam-added{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;padding:34px 18px}
+.webcam-empty-review strong,.webcam-reading strong,.webcam-error strong,.webcam-no-match strong,.webcam-added>strong{font-size:1.15rem}
+.webcam-empty-review small,.webcam-reading small,.webcam-error small,.webcam-no-match small,.webcam-added small{color:#8da2c3;font-size:.78rem;line-height:1.45}
+.webcam-reading span{width:44px;height:44px;border:4px solid rgba(124,230,255,.2);border-top-color:var(--theme-accent);border-radius:50%;animation:webcam-spin .8s linear infinite}
+.webcam-confirm>small,.webcam-quantity>small{display:block;color:var(--theme-accent);font-size:.67rem;font-weight:950;letter-spacing:.12em;margin-bottom:11px}
+.webcam-confirm-card{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
+.webcam-confirm-card.compact{grid-template-columns:120px 1fr}
+.webcam-confirm-card img{width:100%;aspect-ratio:63/88;object-fit:cover;border-radius:11px}
+.webcam-confirm-card h4{margin:0 0 7px;font-size:1.15rem}
+.webcam-confirm-card p{margin:0 0 5px;color:#a7b8d2;font-size:.78rem;line-height:1.4}
+.webcam-confirm-card span{display:block;color:#8399bb;font-size:.72rem;line-height:1.4}
+.webcam-confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.webcam-confirm-actions button{min-height:48px}
+.webcam-confirm-actions .webcam-confirm-yes{grid-column:1/-1;min-height:54px;font-size:.84rem}
+.webcam-alternatives{display:grid;gap:9px;margin-top:14px;max-height:360px;overflow:auto}
+.webcam-match-choice{display:grid;grid-template-columns:66px 1fr auto;gap:11px;align-items:center;width:100%;padding:9px;border:1px solid rgba(121,160,255,.16);border-radius:12px;background:rgba(8,15,29,.82);color:inherit;text-align:left}
+.webcam-match-choice img{width:66px;aspect-ratio:63/88;object-fit:cover;border-radius:7px}
+.webcam-match-choice strong,.webcam-match-choice small{display:block}
+.webcam-match-choice strong{font-size:.79rem}
+.webcam-match-choice small{margin-top:3px;color:#8197b9;font-size:.65rem}
+.webcam-match-choice>b{color:var(--theme-accent);font-size:.61rem}
+.webcam-storage-hint{margin:16px 0;padding:16px;border:2px solid rgba(124,230,255,.33);border-radius:14px;background:linear-gradient(145deg,rgba(20,43,61,.88),rgba(7,18,31,.95));text-align:left;box-shadow:0 0 28px rgba(124,230,255,.06)}
+.webcam-storage-hint small,.webcam-storage-hint strong,.webcam-storage-hint span{display:block}
+.webcam-storage-hint small{color:var(--theme-accent);font-size:.64rem;font-weight:950;letter-spacing:.12em}
+.webcam-storage-hint strong{margin-top:4px;color:#f5fbff;font-size:1.35rem}
+.webcam-storage-hint span{margin-top:5px;color:#afc2db;font-size:.82rem;line-height:1.45}
+.webcam-storage-hint.unassigned{border-color:rgba(255,190,96,.3);background:rgba(105,69,17,.15)}
+.webcam-qty-question{margin:18px 0 10px;font-size:1rem}
+.webcam-quick-qty{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.webcam-quick-qty button{min-height:58px;border:1px solid rgba(121,160,255,.19);border-radius:12px;background:rgba(9,17,32,.85);color:#c6d3e5;font-size:1.05rem;font-weight:950}
+.webcam-quick-qty button.active{border-color:var(--theme-accent);background:rgba(124,230,255,.09);color:#fff}
+.webcam-custom-qty{display:grid;grid-template-columns:1fr 110px;align-items:center;gap:12px;margin:13px 0;color:#9cafca;font-size:.76rem;font-weight:850}
+.webcam-custom-qty input{min-height:46px;text-align:center;font-size:1rem}
+.webcam-add-next{width:100%;min-height:56px;margin:3px 0 9px;font-size:.86rem}
+.webcam-back-btn{width:100%;min-height:44px}
+.webcam-added>b{display:block;margin-top:6px;color:#dbe8f7;font-size:.78rem}
+.webcam-scanner-footer{display:grid;grid-template-columns:minmax(250px,360px) 1fr;align-items:center;gap:14px;margin-top:15px}
+.webcam-read-now{min-height:58px;font-size:.9rem}
+.webcam-scanner-footer span{color:#8196b6;font-size:.73rem;line-height:1.45}
+@keyframes webcam-spin{to{transform:rotate(360deg)}}
+@media(max-width:1050px){.webcam-scanner-layout{grid-template-columns:1fr}.webcam-stage,.webcam-stage video{min-height:600px}.webcam-review{min-height:380px}}
+@media(max-width:700px){.webcam-scanner-panel{padding:13px}.webcam-scanner-head{display:grid}.webcam-scanner-actions button{width:100%}.webcam-camera-select-wrap label{grid-template-columns:1fr}.webcam-scanner-layout{gap:12px}.webcam-stage,.webcam-stage video{min-height:500px}.webcam-review{min-height:330px;padding:13px}.webcam-confirm-card{grid-template-columns:118px 1fr}.webcam-confirm-card.compact{grid-template-columns:100px 1fr}.webcam-confirm-actions{grid-template-columns:1fr}.webcam-confirm-actions .webcam-confirm-yes{grid-column:auto}.webcam-scanner-footer{grid-template-columns:1fr}.webcam-read-now{width:100%}}
+@media(max-width:480px){.webcam-stage,.webcam-stage video{min-height:430px}.webcam-card-guide{height:78%;top:6%}.webcam-card-guide b{font-size:.63rem}.webcam-confirm-card{grid-template-columns:96px 1fr;gap:11px}.webcam-confirm-card.compact{grid-template-columns:88px 1fr}.webcam-storage-hint strong{font-size:1.1rem}.webcam-quick-qty button{min-height:52px}.webcam-custom-qty{grid-template-columns:1fr 90px}}

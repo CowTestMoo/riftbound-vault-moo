@@ -9,7 +9,7 @@ Riftbound Vault is a responsive collection manager for Riftbound cards. It track
 - Supabase Auth and database-backed cloud synchronization
 - Read-only public library snapshots for browsing friends' collections
 - Generated Riftbound card and price data under `data/`
-- Automatic GitHub Actions checks for JavaScript syntax, accidental secrets, and broken/duplicate page asset references
+- Automatic GitHub Actions checks for JavaScript syntax, accidental secrets, and broken or duplicate local asset references
 
 ## Main features
 
@@ -39,7 +39,8 @@ Authentication sessions are stored per the user's "Stay signed in" preference. P
 - Card images use lazy loading where appropriate.
 - Cloud sync is event-driven and does not continuously poll the database.
 - Theme-specific visual and audio assets load only for the selected theme.
-- The service worker core shell is intentionally small so first visits do not trigger a large background download.
+- The old service worker/PWA experiment is retired. Startup code removes stale Riftbound Vault registrations and caches left on older browsers.
+- Device-specific helpers should avoid running on device classes they do not target.
 
 ## Development
 

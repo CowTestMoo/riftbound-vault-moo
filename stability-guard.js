@@ -58,39 +58,37 @@
     };
   } catch {}
 
-  /* The restored app preloads roughly half the catalog after the first render.
-     On iPhone/iPad that can mean hundreds of card images and enough memory
-     pressure for Safari to kill/reload the page. Suppress only that next idle
-     preload callback on touch/small-screen devices. */
+  /* The restored app still schedules a preload of roughly half the catalog
+     after its first render. That is unnecessary startup work on both desktop
+     and mobile, so suppress only that one idle callback. Normal idle work is
+     restored immediately afterward. */
   try {
-    const mobileLike = matchMedia('(pointer: coarse)').matches || innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (mobileLike) {
-      window.addEventListener('riftbound-catalog-ready', () => {
-        const hadIdle = 'requestIdleCallback' in window;
-        const nativeIdle = window.requestIdleCallback;
-        let intercepted = false;
+    window.addEventListener('riftbound-catalog-ready', () => {
+      const hadIdle = 'requestIdleCallback' in window;
+      const nativeIdle = window.requestIdleCallback;
+      let intercepted = false;
 
-        window.requestIdleCallback = function(callback, options) {
-          if (!intercepted) {
-            intercepted = true;
-            if (hadIdle) window.requestIdleCallback = nativeIdle;
-            else {
-              try { delete window.requestIdleCallback; } catch { window.requestIdleCallback = undefined; }
-            }
-            return 0;
+      window.requestIdleCallback = function(callback, options) {
+        if (!intercepted) {
+          intercepted = true;
+          if (hadIdle) window.requestIdleCallback = nativeIdle;
+          else {
+            try { delete window.requestIdleCallback; } catch { window.requestIdleCallback = undefined; }
           }
-          return nativeIdle ? nativeIdle.call(window, callback, options) : setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 1);
-        };
+          window.dispatchEvent(new CustomEvent('riftbound-card-preload-complete',{detail:{count:0,skipped:true}}));
+          return 0;
+        }
+        return nativeIdle ? nativeIdle.call(window, callback, options) : setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 1);
+      };
 
-        setTimeout(() => {
-          if (!intercepted) {
-            if (hadIdle) window.requestIdleCallback = nativeIdle;
-            else {
-              try { delete window.requestIdleCallback; } catch { window.requestIdleCallback = undefined; }
-            }
+      setTimeout(() => {
+        if (!intercepted) {
+          if (hadIdle) window.requestIdleCallback = nativeIdle;
+          else {
+            try { delete window.requestIdleCallback; } catch { window.requestIdleCallback = undefined; }
           }
-        }, 2500);
-      }, { once: true });
-    }
+        }
+      }, 2500);
+    }, { once: true });
   } catch {}
 })();

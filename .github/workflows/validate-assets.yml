@@ -22,6 +22,7 @@ jobs:
           from html.parser import HTMLParser
           from pathlib import Path
           from urllib.parse import urlsplit
+          import re
 
           class Parser(HTMLParser):
               def __init__(self):
@@ -33,23 +34,54 @@ jobs:
                   if value:
                       self.assets.append(value)
 
+          def local_path(raw, base=Path('.')):
+              if not raw or raw.startswith(('#','data:','blob:')) or '://' in raw:
+                  return None
+              path=urlsplit(raw).path
+              if not path or path.startswith('/'):
+                  return None
+              return (base / path.removeprefix('./')).resolve()
+
+          root=Path('.').resolve()
           parser=Parser()
           parser.feed(Path('index.html').read_text(encoding='utf-8'))
-          local=[]
+
+          index_local=[]
           missing=[]
           for raw in parser.assets:
-              path=urlsplit(raw).path
-              if not path or path.startswith('/') or '://' in raw:
+              path=local_path(raw)
+              if path is None:
                   continue
-              path=path.removeprefix('./')
-              local.append(path)
-              if not Path(path).is_file():
-                  missing.append(path)
+              try:
+                  rel=path.relative_to(root)
+              except ValueError:
+                  continue
+              index_local.append(str(rel))
+              if not path.is_file():
+                  missing.append(f'index.html -> {rel}')
 
-          duplicates=sorted({p for p in local if local.count(p)>1})
+          duplicates=sorted({p for p in index_local if index_local.count(p)>1})
+
+          css_import=re.compile(r'@import\s+(?:url\(\s*)?["\']([^"\']+)["\']\s*\)?',re.I)
+          quoted_asset=re.compile(r'["\']((?:\./)?[A-Za-z0-9_./-]+\.(?:js|css)(?:\?[^"\']*)?)["\']',re.I)
+
+          for css in root.rglob('*.css'):
+              text=css.read_text(encoding='utf-8',errors='ignore')
+              for raw in css_import.findall(text):
+                  path=local_path(raw,css.parent)
+                  if path is not None and not path.is_file():
+                      missing.append(f'{css.relative_to(root)} -> {urlsplit(raw).path}')
+
+          for js in root.rglob('*.js'):
+              text=js.read_text(encoding='utf-8',errors='ignore')
+              for raw in quoted_asset.findall(text):
+                  path=local_path(raw,js.parent)
+                  if path is not None and not path.is_file():
+                      missing.append(f'{js.relative_to(root)} -> {urlsplit(raw).path}')
+
           if missing:
-              raise SystemExit('Missing local assets: '+', '.join(sorted(set(missing))))
+              raise SystemExit('Missing local assets:\n  '+'\n  '.join(sorted(set(missing))))
           if duplicates:
-              raise SystemExit('Duplicate local assets: '+', '.join(duplicates))
-          print(f'Validated {len(local)} local index assets.')
+              raise SystemExit('Duplicate local index assets: '+', '.join(duplicates))
+          print(f'Validated {len(index_local)} local index assets plus nested CSS/JS references.')
           PY

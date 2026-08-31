@@ -32,6 +32,27 @@
     else if(!tools&&browse.parentElement!==tabs)tabs.appendChild(browse);
   }
 
+  function placeBulkControlsLikeTabs(browse,tabs){
+    if(!browse||!tabs)return;
+    const bulkAdd=document.getElementById('bulkAddBtn');
+    const bulkEntry=document.getElementById('bulkEntryBtn');
+
+    if(bulkAdd){
+      bulkAdd.classList.remove('primary-btn','ghost-btn','active');
+      bulkAdd.classList.add('tab','bulk-add-tab');
+      bulkAdd.removeAttribute('aria-current');
+      if(browse.nextElementSibling!==bulkAdd)browse.insertAdjacentElement('afterend',bulkAdd);
+    }
+
+    if(bulkEntry){
+      bulkEntry.classList.remove('primary-btn','ghost-btn','active');
+      bulkEntry.classList.add('tab','bulk-entry-tab');
+      bulkEntry.removeAttribute('aria-current');
+      const anchor=bulkAdd||browse;
+      if(anchor.nextElementSibling!==bulkEntry)anchor.insertAdjacentElement('afterend',bulkEntry);
+    }
+  }
+
   function placeSettingsUnderUsername(settings,topbar,tabs){
     if(!settings||!topbar)return;
     const account=document.getElementById('socialAccountArea');
@@ -101,6 +122,7 @@
     cleanLegacyHeader(topbar);
     const browse=ensureBrowseButton();
     placeBrowseLikeTab(browse,tabs);
+    placeBulkControlsLikeTabs(browse,tabs);
     placeSettingsUnderUsername(settings,topbar,tabs);
     restoreHeaderOrder(topbar);
   }

@@ -2,7 +2,7 @@
 
 const STORAGE_KEY = 'riftbound-vault-v2';
 const FILTER_STORAGE_KEY = 'riftbound-card-filters-v2';
-const PAGE_SIZE = window.matchMedia('(max-width:900px), (pointer:coarse)').matches ? 24 : 60;
+const PAGE_SIZE = 60;
 const DOMAINS = ['Fury','Calm','Mind','Body','Chaos','Order'];
 const TYPES = ['All','Legend','Unit','Rune','Spell','Gear','Battlefield','Token'];
 let catalog = [];
@@ -148,15 +148,7 @@ function describeStorageBox(box){
 function preloadHalfCatalog(cards){
   if(cardPreloadStarted)return;
   cardPreloadStarted=true;
-  const coarse=window.matchMedia('(pointer: coarse)').matches;
-  const narrow=window.matchMedia('(max-width: 900px)').matches;
-  const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
-  const constrained=!!connection?.saveData||/^(slow-2g|2g|3g)$/i.test(connection?.effectiveType||'');
-  if(coarse||narrow||constrained){
-    window.dispatchEvent(new CustomEvent('riftbound-card-preload-complete',{detail:{count:0,skipped:true}}));
-    return;
-  }
-  const target=Math.min(24,cards.length);
+  const target=Math.ceil(cards.length/2);
   const urls=[];
   const seen=new Set();
   for(const card of cards){
@@ -165,7 +157,7 @@ function preloadHalfCatalog(cards){
     if(urls.length>=target)break;
   }
   let cursor=0,active=0,pumpScheduled=false;
-  const concurrency=2;
+  const concurrency=4;
   const pump=()=>{
     if(document.hidden)return;
     while(active<concurrency&&cursor<urls.length){
@@ -183,13 +175,13 @@ function preloadHalfCatalog(cards){
     if(pumpScheduled)return;
     pumpScheduled=true;
     const run=()=>{pumpScheduled=false;pump()};
-    if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:1200});
-    else setTimeout(run,150);
+    if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:800});
+    else setTimeout(run,80);
   };
   const resume=()=>{if(!document.hidden)schedulePump()};
   const start=()=>{schedulePump();window.dispatchEvent(new CustomEvent('riftbound-card-preload-started',{detail:{count:urls.length}}))};
   document.addEventListener('visibilitychange',resume);
-  if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:1800});else setTimeout(start,250);
+  if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:1200});else setTimeout(start,120);
 }
 
 async function loadCatalog(){

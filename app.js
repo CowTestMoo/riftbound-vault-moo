@@ -3,6 +3,7 @@
 const STORAGE_KEY = 'riftbound-vault-v2';
 const FILTER_STORAGE_KEY = 'riftbound-card-filters-v2';
 const PAGE_SIZE = 60;
+const CATALOG_TIMEOUT_MS = 10000;
 const DOMAINS = ['Fury','Calm','Mind','Body','Chaos','Order'];
 const TYPES = ['All','Legend','Unit','Rune','Spell','Gear','Battlefield','Token'];
 let catalog = [];
@@ -13,6 +14,7 @@ let filters = loadFilters();
 let state = loadState();
 let renderSignalFrame=0;
 let cardSearchFrame=0;
+let catalogLoadId=0;
 const renderSignalScopes=new Set();
 let cardPreloadStarted=false;
 const cardPreloadImages=new Set();
@@ -184,12 +186,44 @@ function preloadHalfCatalog(cards){
   if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:1200});else setTimeout(start,120);
 }
 
+function catalogRequestUrl(attempt){
+  const url=new URL('./data/cards.json',location.href);
+  url.searchParams.set('rv',attempt?`retry-${Date.now()}`:'startup-3');
+  return url.href;
+}
+async function requestCatalogAttempt(attempt){
+  const controller=typeof AbortController==='function'?new AbortController():null;
+  let timer=0;
+  const request=(async()=>{
+    const init={cache:'no-store'};
+    if(controller)init.signal=controller.signal;
+    const response=await fetch(catalogRequestUrl(attempt),init);
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  })();
+  const timeout=new Promise((resolve,reject)=>{
+    timer=setTimeout(()=>{
+      controller?.abort();
+      reject(new Error('The catalog request timed out.'));
+    },CATALOG_TIMEOUT_MS);
+  });
+  try{return await Promise.race([request,timeout]);}
+  finally{clearTimeout(timer);controller?.abort();}
+}
+async function requestCatalog(){
+  let lastError;
+  for(let attempt=0;attempt<2;attempt++){
+    try{return await requestCatalogAttempt(attempt)}catch(err){lastError=err}
+  }
+  throw new Error(`${lastError?.message||'The catalog request failed.'} Please try again.`);
+}
+
 async function loadCatalog(){
+  const loadId=++catalogLoadId;
   try{
     $('catalogStatus').textContent='Loading Riftbound catalog...';
-    const r=await fetch('./data/cards.json',{cache:'default'});
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data=await r.json();
+    const data=await requestCatalog();
+    if(loadId!==catalogLoadId)return;
     catalog=Array.isArray(data)?data:(data.cards||[]);
     if(catalog.length<100) throw new Error(`Only ${catalog.length} cards found`);
     catalog=catalog.map((c,i)=>{
@@ -207,12 +241,14 @@ async function loadCatalog(){
     window.dispatchEvent(new CustomEvent('riftbound-catalog-ready',{detail:{catalog}}));
     preloadHalfCatalog(catalog);
   }catch(err){
+    if(loadId!==catalogLoadId)return;
     console.error(err);
     $('catalogStatus').textContent=`Catalog error: ${err.message}`;
-    $('cardGrid').innerHTML='<div class="empty-state">The card catalog failed to load. The page itself is working, but the data request failed.</div>';
+    $('cardGrid').innerHTML=`<div class="empty-state catalog-error"><strong>The card catalog could not finish loading.</strong><p>${esc(err.message)}</p><button type="button" class="ghost-btn" data-retry-catalog>Retry loading catalog</button></div>`;
     signalUi('cards');
   }
 }
+window.RiftboundCatalog={reload:()=>loadCatalog()};
 
 function chip(v,active,kind){ return `<button class="filter-chip ${active?'active':''}" data-kind="${kind}" data-value="${esc(v)}">${esc(v)}</button>`; }
 function renderFilters(){
@@ -316,6 +352,7 @@ function wireEvents(){
   document.addEventListener('click',e=>{
     let x;
     if(x=e.target.closest('.tab')) return switchTab(x.dataset.tab);
+    if(x=e.target.closest('[data-retry-catalog]')){e.preventDefault();return loadCatalog();}
     if(x=e.target.closest('#cardsView .filter-chip[data-kind]'))return toggleFilter(x.dataset.kind,x.dataset.value);
     if(x=e.target.closest('[data-card]')) return showCard(x.dataset.card);
     if(x=e.target.closest('[data-close]')) return $(x.dataset.close)?.close();

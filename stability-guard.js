@@ -36,11 +36,9 @@
         try {
           const requestUrl = new URL(url.href);
           if (bustCache) requestUrl.searchParams.set('_rv', Date.now().toString());
-          return await nativeFetch(requestUrl.href, {
-            ...init,
-            cache: cacheMode,
-            signal: controller.signal
-          });
+          const requestInit = {...init, cache: cacheMode};
+          if (!requestInit.signal) requestInit.signal = controller.signal;
+          return await nativeFetch(requestUrl.href, requestInit);
         } finally {
           clearTimeout(timer);
         }
@@ -56,6 +54,26 @@
         }
       }
     };
+  } catch {}
+
+  /* Never leave a partially booted page looking alive forever. This covers
+     the case where an older cached script prevents the core app from reaching
+     its own catalog error handler. */
+  try {
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-retry-catalog]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (window.RiftboundCatalog?.reload) window.RiftboundCatalog.reload();
+      else location.reload();
+    }, true);
+    setTimeout(() => {
+      const status = document.getElementById('catalogStatus');
+      const grid = document.getElementById('cardGrid');
+      if (!status || !grid || !/^\s*Loading Riftbound catalog/i.test(status.textContent || '')) return;
+      status.textContent = 'Catalog is taking longer than expected.';
+      grid.innerHTML = '<div class="empty-state catalog-error"><strong>The catalog did not finish loading.</strong><p>You can retry without losing your collection.</p><button type="button" class="ghost-btn" data-retry-catalog>Reload catalog</button></div>';
+    }, 20000);
   } catch {}
 
   /* The restored app still schedules a preload of roughly half the catalog

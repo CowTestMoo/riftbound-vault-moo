@@ -8,6 +8,7 @@
   };
   let loadedTheme='';
   let loading=null;
+  let effectsStarted=false;
 
   function selectedTheme(){
     try{return JSON.parse(localStorage.getItem(UX_KEY)||'{}').intensity==='neon'?'neon':'cosmic'}
@@ -19,18 +20,37 @@
   }
   function addScript(src,theme){
     return new Promise((resolve,reject)=>{
-      const script=document.createElement('script');script.src=src;script.async=false;script.dataset.themeAsset=theme;script.onload=resolve;script.onerror=reject;document.body.appendChild(script);
+      const script=document.createElement('script');script.src=src;script.async=true;script.dataset.themeAsset=theme;script.onload=resolve;script.onerror=reject;document.body.appendChild(script);
+    });
+  }
+  function waitForCore(){
+    if(window.RiftboundApp?.getCatalog?.().length)return Promise.resolve();
+    return new Promise(resolve=>{
+      let done=false;
+      const finish=()=>{if(done)return;done=true;resolve()};
+      window.addEventListener('riftbound-catalog-ready',finish,{once:true});
+      setTimeout(finish,8000);
+    });
+  }
+  function waitForIdle(){
+    return new Promise(resolve=>{
+      if('requestIdleCallback' in window)requestIdleCallback(()=>resolve(),{timeout:1800});
+      else setTimeout(resolve,450);
     });
   }
   async function load(theme=selectedTheme()){
-    if(loadedTheme===theme)return theme;
+    if(loadedTheme===theme&&loading)return loading;
     if(loading)return loading;
     const assets=ASSETS[theme]||ASSETS.cosmic;
     loadedTheme=theme;
+    assets.styles.forEach(href=>addStyle(href,theme));
     loading=(async()=>{
-      assets.styles.forEach(href=>addStyle(href,theme));
+      await waitForCore();
+      await waitForIdle();
+      if(effectsStarted)return theme;
+      effectsStarted=true;
       for(const src of assets.scripts)await addScript(src,theme);
-      window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme}}));
+      window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme,deferred:true}}));
       return theme;
     })().catch(err=>{console.error('Theme assets failed to load',err);return theme});
     return loading;

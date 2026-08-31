@@ -6,6 +6,41 @@
   <meta name="theme-color" content="#050714">
   <meta name="description" content="Personal Riftbound collection, storage, deck, and loan tracker.">
   <title>Riftbound Vault</title>
+  <script>
+    (()=>{
+      const MARK='riftbound-vault-pwa-retired-v1';
+      if(sessionStorage.getItem(MARK))return;
+      const scopePath='/riftbound-vault-moo/';
+      (async()=>{
+        let changed=false;
+        try{
+          if('serviceWorker' in navigator){
+            const registrations=await navigator.serviceWorker.getRegistrations();
+            for(const registration of registrations){
+              const scope=new URL(registration.scope);
+              if(scope.origin===location.origin&&scope.pathname.startsWith(scopePath)){
+                changed=(await registration.unregister())||changed;
+              }
+            }
+          }
+        }catch{}
+        try{
+          if('caches' in window){
+            const keys=await caches.keys();
+            for(const key of keys){
+              if(key.startsWith('riftbound-vault')){
+                changed=(await caches.delete(key))||changed;
+              }
+            }
+          }
+        }catch{}
+        if(changed){
+          sessionStorage.setItem(MARK,'1');
+          location.reload();
+        }
+      })();
+    })();
+  </script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg?v=asol1" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=asol2">

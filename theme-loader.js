@@ -9,7 +9,9 @@
   let loadedTheme='';
   let loading=null;
   let effectsStarted=false;
+  let reloadRequested=false;
 
+  function normalizeTheme(theme){return theme==='neon'?'neon':'cosmic'}
   function selectedTheme(){
     try{return JSON.parse(localStorage.getItem(UX_KEY)||'{}').intensity==='neon'?'neon':'cosmic'}
     catch{return 'cosmic'}
@@ -20,6 +22,8 @@
   }
   function addScript(src,theme){
     return new Promise((resolve,reject)=>{
+      const existing=document.querySelector(`script[data-theme-asset="${theme}"][src="${src}"]`);
+      if(existing){resolve();return}
       const script=document.createElement('script');script.src=src;script.async=true;script.dataset.themeAsset=theme;script.onload=resolve;script.onerror=reject;document.body.appendChild(script);
     });
   }
@@ -38,29 +42,55 @@
       else setTimeout(resolve,450);
     });
   }
+  function removeOtherThemeAssets(theme){
+    document.querySelectorAll('[data-theme-asset]').forEach(node=>{
+      if(node.dataset.themeAsset&&node.dataset.themeAsset!==theme)node.remove();
+    });
+  }
   async function load(theme=selectedTheme()){
+    theme=normalizeTheme(theme);
     if(loadedTheme===theme&&loading)return loading;
+    if(loading&&loadedTheme!==theme){switchTo(theme);return Promise.resolve(theme)}
     if(loading)return loading;
     const assets=ASSETS[theme]||ASSETS.cosmic;
+    removeOtherThemeAssets(theme);
     loadedTheme=theme;
     assets.styles.forEach(href=>addStyle(href,theme));
     loading=(async()=>{
       await waitForCore();
       await waitForIdle();
+      if(reloadRequested)return theme;
       if(effectsStarted)return theme;
       effectsStarted=true;
-      for(const src of assets.scripts)await addScript(src,theme);
-      window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme,deferred:true}}));
+      for(const src of assets.scripts){
+        if(reloadRequested)break;
+        await addScript(src,theme);
+      }
+      if(!reloadRequested)window.dispatchEvent(new CustomEvent('riftbound-theme-assets-ready',{detail:{theme,deferred:true}}));
       return theme;
     })().catch(err=>{console.error('Theme assets failed to load',err);return theme});
     return loading;
   }
   function switchTo(theme){
-    if(theme===loadedTheme)return;
-    document.body.classList.add('theme-reloading');
+    theme=normalizeTheme(theme);
+    if(theme===loadedTheme||reloadRequested)return;
+    reloadRequested=true;
+    removeOtherThemeAssets(theme);
+    if(document.body){
+      document.body.dataset.vaultTheme=theme;
+      document.body.dataset.intensity=theme==='neon'?'neon':'supernova';
+      document.body.classList.add('theme-reloading');
+    }
     location.reload();
+  }
+  function syncSelectedTheme(){
+    const next=selectedTheme();
+    if(!loadedTheme){load(next);return}
+    if(next!==loadedTheme)switchTo(next);
   }
 
   window.RiftboundThemeAssets={load,switchTo,getLoadedTheme:()=>loadedTheme};
+  window.addEventListener('riftbound-cloud-restored',()=>setTimeout(syncSelectedTheme,0));
+  window.addEventListener('storage',event=>{if(event.key===UX_KEY)setTimeout(syncSelectedTheme,0)});
   load();
 })();

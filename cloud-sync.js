@@ -66,7 +66,7 @@
     const description=p.get('error_description')||'';
     if(!error&&!code&&!description)return '';
     if(code==='otp_expired'||/expired/i.test(description))return 'Invitation expired. Ask the vault owner to send you a new invitation.';
-    return decodeURIComponent(description||'This invitation link could not be accepted. Ask the vault owner to send a new invitation.');
+    return description||'This invitation link could not be accepted. Ask the vault owner to send a new invitation.';
   }
 
   function showInviteError(message){

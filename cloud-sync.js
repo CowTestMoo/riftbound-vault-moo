@@ -57,11 +57,34 @@
   async function signIn(email,password){const data=await request('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});saveSession(normalizeSession(data));await reconcileAfterLogin(true);return session}
   async function signOut(){clearTimeout(syncTimer);syncTimer=0;const s=await freshSession();if(s){try{await request('/auth/v1/logout',{method:'POST',token:s.access_token})}catch{}}saveSession(null);setStatus('Local only','idle')}
 
+  function inviteErrorFromUrl(){
+    const hash=location.hash||'';
+    if(!hash)return '';
+    const p=new URLSearchParams(hash.slice(1));
+    const error=p.get('error')||'';
+    const code=p.get('error_code')||'';
+    const description=p.get('error_description')||'';
+    if(!error&&!code&&!description)return '';
+    if(code==='otp_expired'||/expired/i.test(description))return 'Invitation expired. Ask the vault owner to send you a new invitation.';
+    return decodeURIComponent(description||'This invitation link could not be accepted. Ask the vault owner to send a new invitation.');
+  }
+
+  function showInviteError(message){
+    ensureAuthDialog();
+    const msg=document.getElementById('cloudAuthMessage');
+    if(msg)msg.textContent=message;
+    const d=document.getElementById('cloudAuthDialog');
+    if(d&&!d.open)d.showModal();
+    history.replaceState(null,'',location.pathname+location.search);
+  }
+
   async function consumeInviteHash(){
+    const inviteError=inviteErrorFromUrl();
+    if(inviteError){showInviteError(inviteError);return true}
     if(!location.hash||!location.hash.includes('access_token='))return false;
     const p=new URLSearchParams(location.hash.slice(1)),access=p.get('access_token'),refresh=p.get('refresh_token'),type=p.get('type')||'';
     if(!access||!refresh)return false;
-    try{const user=await request('/auth/v1/user',{token:access});saveSession({access_token:access,refresh_token:refresh,expiresAt:Date.now()+Number(p.get('expires_in')||3600)*1000,user});history.replaceState(null,'',location.pathname+location.search);if(type==='invite'||type==='recovery'){showPasswordSetup(type);return true}await reconcileAfterLogin(true);return true}catch(err){console.error('Invite link could not be accepted',err);return false}
+    try{const user=await request('/auth/v1/user',{token:access});saveSession({access_token:access,refresh_token:refresh,expiresAt:Date.now()+Number(p.get('expires_in')||3600)*1000,user});history.replaceState(null,'',location.pathname+location.search);if(type==='invite'||type==='recovery'){showPasswordSetup(type);return true}await reconcileAfterLogin(true);return true}catch(err){console.error('Invite link could not be accepted',err);showInviteError('This invitation link could not be accepted. Ask the vault owner to send a new invitation.');return true}
   }
 
   function showPasswordSetup(type='invite'){

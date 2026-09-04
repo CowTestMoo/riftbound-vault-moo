@@ -22,9 +22,18 @@
   function hash(value){let h=2166136261,s=JSON.stringify(value);for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(36)}
 
   async function api(path,{method='GET',body,prefer}={}){
-    const s=session();if(!s?.access_token)throw new Error('Sign in to browse libraries.');
-    const headers={apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${s.access_token}`,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})};
-    const res=await fetch(SUPABASE_URL+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
+    let s=window.RiftboundCloud?.getFreshSession?await window.RiftboundCloud.getFreshSession():session();
+    if(!s?.access_token)throw new Error('Sign in to browse libraries.');
+    const payload=body===undefined?undefined:JSON.stringify(body);
+    const send=current=>{
+      const headers={apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${current.access_token}`,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})};
+      return fetch(SUPABASE_URL+path,{method,headers,body:payload});
+    };
+    let res=await send(s);
+    if(res.status===401&&window.RiftboundCloud?.refreshSession){
+      const refreshed=await window.RiftboundCloud.refreshSession().catch(()=>null);
+      if(refreshed?.access_token){s=refreshed;res=await send(s)}
+    }
     let data=null;try{data=await res.json()}catch{}
     if(!res.ok){const e=new Error(data?.message||data?.error_description||data?.details||`HTTP ${res.status}`);e.status=res.status;throw e}return data;
   }

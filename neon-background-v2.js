@@ -3,7 +3,10 @@
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const coarse = window.matchMedia('(pointer: coarse)');
-  const DPR_CAP = coarse.matches ? 1.35 : 1.6;
+  const DPR_CAP = coarse.matches ? 1.1 : 1.3;
+  const MAX_RENDER_PIXELS = coarse.matches ? 2400000 : 4000000;
+  const TARGET_FPS = coarse.matches ? 30 : 36;
+  const FRAME_INTERVAL = 1000 / TARGET_FPS;
   const COLORS = [[57,255,216],[255,60,247],[123,92,255],[70,157,255]];
   const LABELS = ['ICE BYPASS','NODE LINKED','TRACE SPOOFED','BREACH READY','PACKET MIRROR','AUTH GHOST'];
   const GLYPHS = '01ABCDEF<>[]{}//\\#$%';
@@ -24,10 +27,10 @@
   const sctx = staticCanvas.getContext('2d',{alpha:false});
   if (!sctx) return;
 
-  let w=1,h=1,dpr=1,raf=0,last=performance.now(),hidden=document.hidden,active=false;
+  let w=1,h=1,dpr=1,raf=0,last=performance.now(),lastRender=0,hidden=document.hidden,active=false;
   let particles=[],rain=[],beams=[],drops=[],buildings=[];
   let glitchUntil=0,nextGlitch=0,hackUntil=0,nextHack=0,hackLabel='';
-  let avg=16.7,quality=1,lastQuality=0,frameNo=0;
+  let avg=FRAME_INTERVAL,quality=1,lastQuality=0,frameNo=0;
 
   const isNeon = () => document.body?.dataset?.vaultTheme === 'neon';
   const particle = () => ({x:Math.random(),y:Math.random(),r:random(.5,1.8),vx:random(-.000012,.000012),vy:random(-.00003,-.000007),a:random(.18,.6),pulse:random(.0012,.004),phase:random(0,Math.PI*2),c:choose(COLORS)});
@@ -61,8 +64,9 @@
   }
 
   function resize(){
-    dpr=Math.min(window.devicePixelRatio||1,DPR_CAP);
     w=Math.max(1,innerWidth);h=Math.max(1,innerHeight);
+    const pixelCap=Math.sqrt(MAX_RENDER_PIXELS/(w*h));
+    dpr=Math.max(.75,Math.min(window.devicePixelRatio||1,DPR_CAP,pixelCap));
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);canvas.style.width=`${w}px`;canvas.style.height=`${h}px`;
     staticCanvas.width=Math.round(w*dpr);staticCanvas.height=Math.round(h*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);sctx.setTransform(dpr,0,0,dpr,0,0);
@@ -139,8 +143,8 @@
   function adapt(dt,now){
     avg=avg*.94+Math.min(50,dt)*.06;
     if(now-lastQuality<1800)return;
-    if(avg>22&&quality>.58){quality=Math.max(.58,quality-.12);lastQuality=now}
-    else if(avg<18&&quality<1){quality=Math.min(1,quality+.08);lastQuality=now}
+    if(avg>FRAME_INTERVAL*1.35&&quality>.58){quality=Math.max(.58,quality-.12);lastQuality=now}
+    else if(avg<FRAME_INTERVAL*1.12&&quality<1){quality=Math.min(1,quality+.08);lastQuality=now}
   }
 
   function draw(time,dt){
@@ -150,8 +154,8 @@
     moveBeams(dt);moveParticles(time,dt);moveRain(dt);dataRain(dt);grid(time);sweep(time);glitch(time);hack(time);
   }
 
-  function frame(now){if(!active||hidden)return;const dt=Math.min(50,now-last);last=now;adapt(dt,now);draw(now,dt);raf=requestAnimationFrame(frame)}
-  function restart(){cancelAnimationFrame(raf);if(!active||hidden){ctx.clearRect(0,0,w,h);return}last=performance.now();draw(last,0);if(!reduced.matches)raf=requestAnimationFrame(frame)}
+  function frame(now){if(!active||hidden){raf=0;return}raf=requestAnimationFrame(frame);if(now-lastRender<FRAME_INTERVAL)return;const dt=Math.min(50,now-last);last=now;lastRender=now;adapt(dt,now);draw(now,dt)}
+  function restart(){cancelAnimationFrame(raf);raf=0;if(!active||hidden){ctx.clearRect(0,0,w,h);return}last=performance.now();lastRender=last;draw(last,0);if(!reduced.matches)raf=requestAnimationFrame(frame)}
   function syncTheme(){const next=isNeon();if(next===active)return;active=next;restart()}
 
   const observer=new MutationObserver(syncTheme);observer.observe(document.body,{attributes:true,attributeFilter:['data-vault-theme']});

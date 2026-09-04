@@ -9,6 +9,7 @@
   const META_KEY='riftbound-vault-sync-meta-v1';
   const BACKGROUND_MIN_MS=5*60*1000;
   let session=readJSON(AUTH_KEY,null);
+  let refreshPromise=null;
   let syncing=false,syncTimer=0,suppress=false,reconciling=null,lastBackgroundCheck=0,lastRemoteFingerprint='',hydratedUserId='';
 
   function readJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'')||fallback}catch{return fallback}}
@@ -52,7 +53,7 @@
     renderCloudUI();
     window.dispatchEvent(new CustomEvent('riftbound-auth-storage-change'));
   }
-  async function refreshSession(){if(!session?.refresh_token)return null;const data=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});saveSession(normalizeSession(data));return session}
+  async function refreshSession(){if(!session?.refresh_token)return null;if(refreshPromise)return refreshPromise;refreshPromise=(async()=>{const data=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});saveSession(normalizeSession(data));return session})().finally(()=>{refreshPromise=null});return refreshPromise}
   async function freshSession(){if(!session)return null;if(Number(session.expiresAt||0)<Date.now()+90000){try{return await refreshSession()}catch{saveSession(null);return null}}return session}
   async function signIn(email,password){const data=await request('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});saveSession(normalizeSession(data));await reconcileAfterLogin(true);return session}
   async function signOut(){clearTimeout(syncTimer);syncTimer=0;const s=await freshSession();if(s){try{await request('/auth/v1/logout',{method:'POST',token:s.access_token})}catch{}}saveSession(null);setStatus('Local only','idle')}
@@ -173,7 +174,7 @@
   }
   window.RiftboundCloud={
     syncNow:async()=>{if(session&&!isHydrated())await reconcileAfterLogin(true);return pushRemote()},
-    signIn,signOut,getSession:()=>session,reconcile:()=>reconcileAfterLogin(true),backgroundSync
+    signIn,signOut,getSession:()=>session,getFreshSession:freshSession,refreshSession,reconcile:()=>reconcileAfterLogin(true),backgroundSync
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

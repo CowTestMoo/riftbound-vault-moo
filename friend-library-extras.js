@@ -36,7 +36,7 @@
 
   document.addEventListener('click',event=>{
     if(event.target.closest('#clearRecentBtn')){clearRecentlyAdded();return}
-    if(event.target.closest('[data-friend-user]')){const theme=window.RiftboundTheme?.getTheme?.();if(theme==='neon')window.RiftboundNeonAudio?.transition?.();else window.RiftboundCosmicAudio?.transition?.()}
+    if(event.target.closest('[data-friend-user]'))window.RiftboundCosmicAudio?.transition?.();
     if(event.target.closest('#browseLibrariesUtilityBtn'))setTimeout(queueScreenRefresh,0);
   },true);
   window.addEventListener('riftbound-social-ready',()=>{wireObservers();stripLegacyDeckPrivacyControls();queueScreenRefresh()});

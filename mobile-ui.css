@@ -2,8 +2,6 @@
 .mobile-utility-bar{display:none}
 .friend-user-self{border-color:rgba(255,225,159,.26)!important;background:linear-gradient(90deg,rgba(255,225,159,.06),rgba(121,160,255,.05))!important}
 .friend-user-self>span{border-color:rgba(255,225,159,.28)!important;color:#fff1bd!important}
-body[data-vault-theme="neon"] .friend-user-self{border-color:rgba(57,255,216,.30)!important;background:linear-gradient(90deg,rgba(57,255,216,.07),rgba(255,60,247,.05))!important}
-body[data-vault-theme="neon"] .friend-user-self>span{border-color:rgba(57,255,216,.32)!important;color:#9affeb!important}
 
 @media(max-width:700px){
   /* Mobile uses one primary five-button dock. Desktop tabs remain available only on larger screens. */
@@ -28,18 +26,9 @@ body[data-vault-theme="neon"] .friend-user-self>span{border-color:rgba(57,255,21
   .mobile-settings-utility{margin-left:0!important}
   .global-utility-bar{display:none!important}
 
-  body[data-vault-theme="neon"] .mobile-utility-btn{border-color:rgba(57,255,216,.18)!important;background:linear-gradient(180deg,rgba(10,24,30,.90),rgba(8,9,20,.94))!important;color:#8bcfc5!important;box-shadow:-1px 0 8px rgba(255,60,247,.025),1px 0 10px rgba(57,255,216,.035)!important}
-  body[data-vault-theme="neon"] .mobile-utility-btn b{color:#82ffe9}
-  body[data-vault-theme="neon"] .mobile-utility-btn:hover,body[data-vault-theme="neon"] .mobile-utility-btn:active,body[data-vault-theme="neon"] .mobile-utility-btn.active{color:#bafff2!important;border-color:rgba(57,255,216,.42)!important;background:linear-gradient(180deg,rgba(16,45,48,.96),rgba(8,20,28,.98))!important;box-shadow:-2px 0 10px rgba(255,60,247,.07),2px 0 14px rgba(57,255,216,.10)!important}
-  body[data-vault-theme="neon"] .mobile-nav .mobile-tools-center{border-color:rgba(57,255,216,.55)!important;background:radial-gradient(circle at 38% 18%,rgba(255,60,247,.22),transparent 43%),radial-gradient(circle at 68% 24%,rgba(57,255,216,.26),transparent 46%),linear-gradient(180deg,rgba(11,43,47,.99),rgba(7,10,22,.99))!important;color:#a8fff0!important;box-shadow:-5px -5px 22px rgba(255,60,247,.13),5px -6px 28px rgba(57,255,216,.18),0 10px 22px rgba(0,0,0,.36)!important}
-  body[data-vault-theme="neon"] .mobile-nav .mobile-tools-center b{color:#8dffe9!important;text-shadow:-2px 0 rgba(255,60,247,.42),2px 0 rgba(57,255,216,.46),0 0 18px rgba(57,255,216,.58)}
-  body[data-vault-theme="neon"] .mobile-nav .mobile-tools-center.active{color:#031512!important;background:linear-gradient(180deg,#83ffed,#32d8c8)!important;border-color:rgba(139,255,238,.9)!important;box-shadow:-5px -5px 24px rgba(255,60,247,.18),5px -7px 32px rgba(57,255,216,.28),0 10px 22px rgba(0,0,0,.36)!important}
-  body[data-vault-theme="neon"] .mobile-nav .mobile-tools-center.active b{color:#041817!important;text-shadow:none}
-
   /* Settings stays a comfortable mobile sheet above the taller raised dock. */
   #uxSettings.settings-popover{left:8px!important;right:8px!important;top:auto!important;bottom:94px!important;width:auto!important;max-height:min(72vh,620px)!important;overflow:auto!important;padding:14px!important;border-radius:18px!important;z-index:7300!important;overscroll-behavior:contain}
   .settings-head{position:sticky;top:-14px;z-index:2;margin:-14px -14px 10px;padding:14px 14px 8px;background:linear-gradient(180deg,rgba(11,19,39,.995),rgba(11,19,39,.94),rgba(11,19,39,0))}
-  body[data-vault-theme="neon"] #uxSettings.settings-popover{background:linear-gradient(180deg,rgba(7,16,24,.995),rgba(5,7,17,.995))!important;border-color:rgba(57,255,216,.26)!important}
 
   /* Friend browser keeps one clear return action plus optional compare tools. */
   .friend-header{grid-template-columns:1fr!important;gap:9px!important}

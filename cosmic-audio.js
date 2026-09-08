@@ -5,8 +5,8 @@
   const MASTER_BOOST=6.5;
   let ctx=null,noiseBuffer=null,lastHover=0,lastClick=0,lastInput=0,lastStarfield=0,transitionLock=0;
 
-  function readUX(){try{return {intensity:'supernova',cosmicSound:true,cosmicVolume:100,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {intensity:'supernova',cosmicSound:true,cosmicVolume:100}}}
-  function active(){const s=readUX();return document.body?.dataset?.vaultTheme==='cosmic'&&s.intensity!=='neon'&&!!s.cosmicSound}
+  function readUX(){try{return {cosmicSound:true,cosmicVolume:100,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {cosmicSound:true,cosmicVolume:100}}}
+  function active(){const s=readUX();return document.body?.dataset?.vaultTheme==='cosmic'&&!!s.cosmicSound}
   function volume(){return 1}
   function audio(){ctx||=new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')ctx.resume();return ctx}
 

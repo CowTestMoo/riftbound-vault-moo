@@ -6,12 +6,6 @@
 
   function signedIn(){return !!window.RiftboundCloud?.getSession?.()?.user}
 
-  function ensureFeatureLoaders(){
-    if(!window.RiftboundPremades&&!document.getElementById('premadeDeckScript')){
-      const s=document.createElement('script');s.id='premadeDeckScript';s.src='./premade-decks.js?v=1';s.defer=true;document.body.appendChild(s);
-    }
-  }
-
   function cleanLegacyHeader(topbar){
     const actions=document.getElementById('topbarActions');
     if(actions){
@@ -138,7 +132,6 @@
   }
 
   function ensureControls(){
-    ensureFeatureLoaders();
     scheduleDesktopRestore();
   }
 

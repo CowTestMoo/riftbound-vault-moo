@@ -367,8 +367,6 @@ function wireEvents(){
   });
   $('ownedOnly').addEventListener('change',e=>{ filters.ownedOnly=e.target.checked;saveFilters();renderCards(); });
   $('bulkAddBtn').addEventListener('click',openBulk);
-  $('newDeckBtn').addEventListener('click',()=>alert('Deck editor is the next build step after the gallery is stable.'));
-  $('newLoanBtn').addEventListener('click',()=>alert('Loan tracking is the next build step after the gallery is stable.'));
   $('loadMoreBtn').addEventListener('click',()=>{ visibleCount+=PAGE_SIZE; renderCards(); });
   $('exportBtn').addEventListener('click',exportBackup);
   document.addEventListener('input',e=>{ if(e.target.id==='bulkSearch') renderBulk(e.target.value); });

@@ -7,8 +7,6 @@
   let activeTool='wishlist';
   let deckDraft=null;
   let loanDraft=null;
-  let tradeDraft=null;
-  let scanImageUrl='';
 
   const esc=(v='')=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const uid=(p='id')=>`${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,9)}`;
@@ -47,7 +45,7 @@
     if(!tabs.querySelector('[data-tab="tools"]'))tabs.insertAdjacentHTML('beforeend','<button class="tab" data-tab="tools">Tools</button>');
     if(!document.getElementById('toolsView')){
       const v=document.createElement('section');v.id='toolsView';v.className='view';
-      v.innerHTML=`<div class="section-heading"><h2>Vault Tools</h2><p>Wishlist, trades, history, camera assist, and collection values.</p></div><div class="tool-subtabs"><button class="active" data-tool="wishlist">Wishlist</button><button data-tool="trades">Trades</button><button data-tool="activity">Activity</button><button data-tool="scanner">Scanner</button><button data-tool="values">Values</button></div><div id="toolPanel" class="tool-panel"></div>`;
+      v.innerHTML=`<div class="section-heading"><h2>Vault Tools</h2><p>Wishlist, history, card search, and collection values.</p></div><div class="tool-subtabs"><button class="active" data-tool="wishlist">Wishlist</button><button data-tool="activity">Activity</button><button data-tool="scanner">Card Search</button><button data-tool="values">Values</button></div><div id="toolPanel" class="tool-panel"></div>`;
       main.appendChild(v);
     }
     const mobile=document.getElementById('mobileNav');
@@ -145,36 +143,6 @@
     root.innerHTML=cards.map(c=>`<button class="feature-search-row selectable" data-wish-add="${esc(c.cardCode)}">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}<span><strong>${esc(nameOf(c))}</strong><small>${esc(c.cardSet)} ${esc(c.cardNumber||'')}</small></span><b>+</b></button>`).join('');
   }
 
-  function tradeValue(map,s){return Object.entries(map||{}).reduce((n,[c,q])=>n+price(c,s)*Number(q||0),0)}
-  function renderTrades(){
-    const panel=document.getElementById('toolPanel');if(!panel||activeTool!=='trades')return;const s=readState(),trades=s.trades||[];
-    panel.innerHTML=`<div class="tool-head"><div><h3>Trades</h3><p>Plan what you give and receive. Manual prices feed the comparison.</p></div><button id="newTradeBtn" class="primary-btn">New Trade</button></div><div class="trade-list">${trades.length?trades.map(t=>`<article class="list-card feature-list-card"><div><h3>${esc(t.name||'Untitled Trade')}</h3><p>${esc(t.partner||'No partner')} • Give ${money(tradeValue(t.give,s))} • Receive ${money(tradeValue(t.receive,s))} • ${esc(t.status||'Draft')}</p></div><div class="feature-card-actions"><button class="ghost-btn" data-edit-trade="${esc(t.id)}">Edit</button><button class="danger-btn" data-delete-trade="${esc(t.id)}">Delete</button></div></article>`).join(''):'<div class="empty-state">No trade drafts yet.</div>'}</div>`;
-  }
-  function openTradeEditor(id=''){
-    const s=readState(),existing=(s.trades||[]).find(t=>t.id===id);
-    tradeDraft=existing?JSON.parse(JSON.stringify(existing)):{id:uid('trade'),name:'',partner:'',notes:'',give:{},receive:{},status:'Draft',createdAt:new Date().toISOString()};
-    let d=document.getElementById('tradeDialog');if(!d){d=document.createElement('dialog');d.id='tradeDialog';d.className='modal';document.body.appendChild(d)}
-    d.innerHTML=`<div class="modal-inner feature-editor wide-editor"><div class="modal-head"><h2>${existing?'Edit Trade':'New Trade'}</h2><button class="close-btn" data-feature-close="tradeDialog">×</button></div><div class="feature-form-grid"><label>Trade name<input id="tradeName" value="${esc(tradeDraft.name)}" placeholder="Convention trade"></label><label>Trading with<input id="tradePartner" value="${esc(tradeDraft.partner||'')}" placeholder="Name"></label></div><label>Notes<textarea id="tradeNotes" rows="2">${esc(tradeDraft.notes||'')}</textarea></label><div class="trade-editor-columns"><div><h3>You Give</h3><input id="tradeGiveSearch" type="search" placeholder="Search your cards"><div id="tradeGiveResults" class="feature-search-results compact-results"></div><div id="tradeGiveSelected" class="feature-selected-list"></div></div><div><h3>You Receive</h3><input id="tradeReceiveSearch" type="search" placeholder="Search cards"><div id="tradeReceiveResults" class="feature-search-results compact-results"></div><div id="tradeReceiveSelected" class="feature-selected-list"></div></div></div><div id="tradeTotals" class="trade-totals"></div><div class="modal-actions"><button class="primary-btn" id="saveTradeBtn">Save Trade</button><button class="ghost-btn" id="completeTradeBtn">Mark Completed</button></div></div>`;
-    d.showModal();renderTradeSearch('give','');renderTradeSearch('receive','');renderTradeSelected();
-  }
-  function renderTradeSearch(side,q){
-    const root=document.getElementById(side==='give'?'tradeGiveResults':'tradeReceiveResults');if(!root||!tradeDraft)return;const s=readState();
-    const cards=searchCards(q,{ownedOnly:side==='give',limit:q?18:0}).filter(c=>side!=='give'||available(c.cardCode,s)>0);
-    root.innerHTML=cards.map(c=>`<button class="feature-search-row selectable" data-trade-add="${side}" data-code="${esc(c.cardCode)}">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}<span><strong>${esc(nameOf(c))}</strong><small>${esc(c.cardSet)}${side==='give'?` • ${available(c.cardCode,s)} available`:''}${price(c.cardCode,s)?` • ${money(price(c.cardCode,s))}`:''}</small></span><b>+</b></button>`).join('');
-  }
-  function renderTradeSelected(){
-    if(!tradeDraft)return;const s=readState();
-    for(const side of ['give','receive']){const root=document.getElementById(side==='give'?'tradeGiveSelected':'tradeReceiveSelected');if(!root)continue;const map=tradeDraft[side]||{};root.innerHTML=Object.entries(map).filter(([,q])=>q>0).map(([code,q])=>`<div class="selected-card-row"><span><strong>${esc(nameOf(byCode.get(code)||{cardCode:code}))}</strong><small>${price(code,s)?money(price(code,s)):'No price'}</small></span><div><button data-trade-qty="${side}" data-code="${esc(code)}" data-delta="-1">−</button><b>${q}</b><button data-trade-qty="${side}" data-code="${esc(code)}" data-delta="1">+</button></div></div>`).join('')||'<div class="recent-empty">No cards selected.</div>'}
-    const totals=document.getElementById('tradeTotals');if(totals){const give=tradeValue(tradeDraft.give,s),receive=tradeValue(tradeDraft.receive,s);totals.innerHTML=`<span>Give <b>${money(give)}</b></span><span>Receive <b>${money(receive)}</b></span><span>Difference <b>${money(receive-give)}</b></span>`}
-  }
-  function adjustTrade(side,code,delta){
-    const s=readState(),map=tradeDraft[side],cur=Number(map[code]||0),max=side==='give'?available(code,s):99,next=Math.max(0,Math.min(max,cur+delta));if(next)map[code]=next;else delete map[code];renderTradeSelected();
-  }
-  function saveTrade(status){
-    tradeDraft.name=(document.getElementById('tradeName')?.value||'').trim()||'Untitled Trade';tradeDraft.partner=(document.getElementById('tradePartner')?.value||'').trim();tradeDraft.notes=(document.getElementById('tradeNotes')?.value||'').trim();if(status)tradeDraft.status=status;tradeDraft.updatedAt=new Date().toISOString();
-    const s=readState(),i=(s.trades||[]).findIndex(t=>t.id===tradeDraft.id);if(i>=0)s.trades[i]=tradeDraft;else s.trades.push(tradeDraft);logAction(s,`${i>=0?'Updated':'Created'} trade “${tradeDraft.name}”`,{tradeId:tradeDraft.id});saveState(s);document.getElementById('tradeDialog').close();
-  }
-
   function renderActivity(){
     const panel=document.getElementById('toolPanel');if(!panel||activeTool!=='activity')return;const s=readState(),tx=s.transactions||[];
     panel.innerHTML=`<div class="tool-head"><div><h3>Activity</h3><p>Your latest vault changes.</p></div><button id="activityUndoBtn" class="ghost-btn">Undo Last Inventory Change</button></div><div class="activity-list">${tx.length?tx.slice(0,100).map(t=>{const c=byCode.get(t.cardCode),label=t.action||(Number.isFinite(Number(t.delta))?`${Number(t.delta)>0?'+':''}${t.delta} ${nameOf(c||{cardCode:t.cardCode})}`:(t.reason||t.type||'Vault update'));return `<div class="activity-row"><span><strong>${esc(label)}</strong><small>${new Date(t.at||Date.now()).toLocaleString()}${t.reason?` • ${esc(t.reason)}`:''}</small></span></div>`}).join(''):'<div class="empty-state">No activity yet.</div>'}</div>`;
@@ -185,13 +153,6 @@
     const t=s.transactions[i],code=t.cardCode,current=owned(code,s),allocated=decked(code,s)+loaned(code,s),next=Math.max(allocated,current-Number(t.delta));
     s.inventory[code]={...(s.inventory[code]||{}),owned:next};s.transactions.splice(i,1);logAction(s,`Undid inventory change for ${nameOf(byCode.get(code)||{cardCode:code})}`);saveState(s);
   }
-
-  function renderScanner(){
-    const panel=document.getElementById('toolPanel');if(!panel||activeTool!=='scanner')return;
-    panel.innerHTML=`<div class="tool-head"><div><h3>Camera Assist</h3><p>Take a clear card photo for automatic recognition, or use manual catalog search below.</p></div><span class="status-pill">Beta</span></div><div class="scanner-grid"><div class="scanner-capture">${scanImageUrl?`<img src="${esc(scanImageUrl)}" alt="Captured card">`:'<div class="scanner-placeholder">✦<br>Card photo preview</div>'}<label class="primary-btn scanner-file-label">Take / Choose Photo<input id="scannerFile" type="file" accept="image/*" capture="environment" hidden></label></div><div><div class="feature-search"><input id="scannerSearch" type="search" placeholder="Search the captured card by name"></div><div id="scannerResults" class="feature-search-results"></div></div></div>`;
-    renderScannerSearch('');
-  }
-  function renderScannerSearch(q){const root=document.getElementById('scannerResults');if(!root)return;const cards=searchCards(q,{limit:q?30:0});root.innerHTML=cards.map(c=>`<div class="feature-search-row">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}<span><strong>${esc(nameOf(c))}</strong><small>${esc(c.cardSet)} ${esc(c.cardNumber||'')}</small></span><button data-scan-add="${esc(c.cardCode)}">+1</button></div>`).join('')}
 
   function renderValues(){
     const panel=document.getElementById('toolPanel');if(!panel||activeTool!=='values')return;const s=readState(),ownedCards=catalog.filter(c=>owned(c.cardCode,s)>0);
@@ -207,7 +168,7 @@
 
   function renderTool(){
     document.querySelectorAll('.tool-subtabs [data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===activeTool));
-    if(activeTool==='wishlist')renderWishlist();else if(activeTool==='trades')renderTrades();else if(activeTool==='activity')renderActivity();else if(activeTool==='scanner')renderScanner();else renderValues();
+    if(activeTool==='wishlist')renderWishlist();else if(activeTool==='activity')renderActivity();else if(activeTool==='scanner')window.RiftboundManualScanner?.render?.();else renderValues();
     window.dispatchEvent(new CustomEvent('riftbound-tool-render',{detail:{tool:activeTool}}));
   }
   function renderFeatures(){ensureTools();ensureSettingsTools();renderDecks();renderLoans();renderTool()}
@@ -254,17 +215,8 @@
     if(x=e.target.closest('[data-wish-add]')){const s=readState();s.wishlist[x.dataset.wishAdd]={qty:1,priority:'Normal',addedAt:new Date().toISOString()};logAction(s,`Added ${nameOf(byCode.get(x.dataset.wishAdd)||{cardCode:x.dataset.wishAdd})} to wishlist`);saveState(s);return}
     if(x=e.target.closest('[data-wish-qty]')){const s=readState(),w=s.wishlist[x.dataset.wishQty];if(w){w.qty=Math.max(1,Number(w.qty||1)+Number(x.dataset.delta));saveState(s)}return}
     if(x=e.target.closest('[data-wish-remove]')){const s=readState();delete s.wishlist[x.dataset.wishRemove];saveState(s);return}
-    if(e.target.closest('#newTradeBtn')){openTradeEditor();return}
-    if(x=e.target.closest('[data-edit-trade]')){openTradeEditor(x.dataset.editTrade);return}
-    if(x=e.target.closest('[data-delete-trade]')){if(confirm('Delete this trade?')){const s=readState();s.trades=s.trades.filter(t=>t.id!==x.dataset.deleteTrade);saveState(s)}return}
-    if(x=e.target.closest('[data-trade-add]')){adjustTrade(x.dataset.tradeAdd,x.dataset.code,1);return}
-    if(x=e.target.closest('[data-trade-qty]')){adjustTrade(x.dataset.tradeQty,x.dataset.code,Number(x.dataset.delta));return}
-    if(e.target.closest('#saveTradeBtn')){saveTrade();return}
-    if(e.target.closest('#completeTradeBtn')){saveTrade('Completed');return}
-    if(x=e.target.closest('[data-feature-close]')){document.getElementById(x.dataset.featureClose)?.close();return}
     if(e.target.closest('#activityUndoBtn')||e.target.closest('#undoInventoryBtn')){undoLastInventory();return}
     if(e.target.closest('#importBackupBtn')){document.getElementById('importBackupFile')?.click();return}
-    if(x=e.target.closest('[data-scan-add]')){fastAdjust(x.dataset.scanAdd,1,'Camera assist');return}
     if(x=e.target.closest('[data-fast-bulk]')){fastAdjust(x.dataset.fastBulk,Number(x.dataset.delta));return}
   },false);
 
@@ -272,9 +224,6 @@
     if(e.target.id==='deckCardSearch')renderDeckSearch(e.target.value);
     if(e.target.id==='loanCardSearch')renderLoanSearch(e.target.value);
     if(e.target.id==='wishlistSearch')renderWishlistSearch(e.target.value);
-    if(e.target.id==='tradeGiveSearch')renderTradeSearch('give',e.target.value);
-    if(e.target.id==='tradeReceiveSearch')renderTradeSearch('receive',e.target.value);
-    if(e.target.id==='scannerSearch')renderScannerSearch(e.target.value);
     if(e.target.id==='valueSearch')renderValueRows(e.target.value);
     if(e.target.id==='fastBulkSearch')renderFastBulk();
     if(e.target.matches('[data-price-code]')){const s=readState(),code=e.target.dataset.priceCode,val=Math.max(0,Number(e.target.value||0));s.prices[code]={market:val,source:'Manual',updatedAt:new Date().toISOString()};localStorage.setItem(APP_KEY,JSON.stringify(s))}
@@ -282,7 +231,6 @@
   document.addEventListener('change',e=>{
     if(e.target.id==='fastBulkSet')renderFastBulk();
     if(e.target.id==='importBackupFile'&&e.target.files?.[0])importBackup(e.target.files[0]);
-    if(e.target.id==='scannerFile'&&e.target.files?.[0]){if(scanImageUrl)URL.revokeObjectURL(scanImageUrl);scanImageUrl=URL.createObjectURL(e.target.files[0]);renderScanner()}
     if(e.target.matches('[data-price-code]')){renderValues();window.RiftboundCloud?.syncNow?.()}
   });
   document.addEventListener('keydown',e=>{

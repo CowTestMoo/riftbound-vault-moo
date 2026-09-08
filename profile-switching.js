@@ -4,20 +4,16 @@
   let transitionLock=false;
   let viewedOtherLibrary=false;
 
-  function theme(){return document.body?.dataset?.vaultTheme==='neon'?'neon':'cosmic'}
   function ownUserId(){return window.RiftboundCloud?.getSession?.()?.user?.id||''}
 
   function playTransitionAudio(){
-    if(theme()==='neon')window.RiftboundNeonAudio?.transition?.();
-    else window.RiftboundCosmicAudio?.transition?.();
+    window.RiftboundCosmicAudio?.transition?.();
   }
 
   function transitionOverlay(label='RETURNING TO YOUR VAULT'){
-    const t=theme(),x=document.createElement('div');
-    x.className=`library-transition ${t}`;
-    x.innerHTML=t==='neon'
-      ? `<div class="neon-gate"><span>${label}</span><b>/// DATA LINK ///</b></div>`
-      : `<div class="cosmic-gate"><i></i><span>${label}</span><b>✦</b></div>`;
+    const x=document.createElement('div');
+    x.className='library-transition cosmic';
+    x.innerHTML=`<div class="cosmic-gate"><i></i><span>${label}</span><b>✦</b></div>`;
     document.body.appendChild(x);
     requestAnimationFrame(()=>x.classList.add('go'));
     setTimeout(()=>x.remove(),1450);

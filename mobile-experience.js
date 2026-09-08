@@ -11,8 +11,7 @@
   const currentTab=()=>document.querySelector('.tab.active')?.dataset.tab||'cards';
 
   function play(kind='click'){
-    if(document.body.dataset.vaultTheme==='neon')window.RiftboundNeonAudio?.play?.(kind);
-    else window.RiftboundCosmicAudio?.play?.(kind);
+    window.RiftboundCosmicAudio?.play?.(kind);
   }
 
   function ensureSheet(id,title){

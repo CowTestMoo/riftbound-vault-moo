@@ -11,12 +11,6 @@
   function catalogByCode(){const catalog=window.RiftboundApp?.getCatalog?.()||[];if(catalog!==catalogRef){catalogRef=catalog;catalogMap=new Map(catalog.map(card=>[card.cardCode,card]))}return catalogMap}
   function syncLibraryScrollLock(){document.documentElement.classList.toggle('friend-library-open-root',document.body.classList.contains('friend-library-open'))}
   function stripLegacyDeckPrivacyControls(root=document){root.querySelectorAll?.(LEGACY_DECK_PRIVACY_SELECTORS).forEach(element=>(element.closest('.setting-row,.feature-form-grid>label,.feature-editor>label,label')||element).remove())}
-  function removeTradingUi(){
-    document.querySelectorAll('[data-tool="trades"]').forEach(button=>button.remove());
-    const heading=document.querySelector('#toolsView .section-heading p');if(heading)heading.textContent='Wishlist, history, card search, and collection values.';
-    const dialog=document.getElementById('tradeDialog');if(dialog){if(dialog.open)dialog.close();dialog.remove()}
-    if(document.querySelector('#newTradeBtn,.trade-list,.trade-editor-columns'))document.querySelector('[data-tool="wishlist"]')?.click();
-  }
   function recentCutoff(){return Number(readJson(UX_KEY,{}).recentClearedAt||0)}
   function positiveRecentTransactions(){const cutoff=recentCutoff(),state=readJson(APP_KEY,{transactions:[]});return (Array.isArray(state.transactions)?state.transactions:[]).filter(t=>Number(t?.delta)>0&&Date.parse(t?.at||0)>cutoff).slice(0,8)}
   function renderRecentPanel(){
@@ -41,10 +35,9 @@
   },true);
   window.addEventListener('riftbound-social-ready',()=>{wireObservers();stripLegacyDeckPrivacyControls();queueScreenRefresh()});
   window.addEventListener('riftbound-friend-render',queueScreenRefresh);
-  window.addEventListener('riftbound-tool-render',removeTradingUi);
   window.addEventListener('riftbound-ui-render',queueRecentRefresh);
   window.addEventListener('riftbound-local-change',event=>{if(event.detail?.key===APP_KEY){queueRecentRefresh();stripLegacyDeckPrivacyControls()}});
 
-  function init(){syncLibraryScrollLock();wireObservers();stripLegacyDeckPrivacyControls();removeTradingUi();renderRecentPanel()}
+  function init(){syncLibraryScrollLock();wireObservers();stripLegacyDeckPrivacyControls();renderRecentPanel()}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

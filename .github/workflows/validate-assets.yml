@@ -79,9 +79,33 @@ jobs:
                   if path is not None and not path.is_file():
                       missing.append(f'{js.relative_to(root)} -> {urlsplit(raw).path}')
 
+          referenced=set(index_local)
+          for source in [*root.glob('*.js'),*root.glob('*.css')]:
+              text=source.read_text(encoding='utf-8',errors='ignore')
+              patterns=[quoted_asset]
+              if source.suffix=='.css':
+                  patterns.append(css_import)
+              for pattern in patterns:
+                  for raw in pattern.findall(text):
+                      path=local_path(raw,source.parent)
+                      if path is None:
+                          continue
+                      try:
+                          referenced.add(str(path.relative_to(root)))
+                      except ValueError:
+                          pass
+
+          orphaned=sorted(
+              str(path.relative_to(root))
+              for path in [*root.glob('*.js'),*root.glob('*.css')]
+              if str(path.relative_to(root)) not in referenced
+          )
+
           if missing:
               raise SystemExit('Missing local assets:\n  '+'\n  '.join(sorted(set(missing))))
           if duplicates:
               raise SystemExit('Duplicate local index assets: '+', '.join(duplicates))
-          print(f'Validated {len(index_local)} local index assets plus nested CSS/JS references.')
+          if orphaned:
+              raise SystemExit('Unreferenced root JS/CSS assets:\n  '+'\n  '.join(orphaned))
+          print(f'Validated {len(index_local)} local index assets plus nested CSS/JS references; no orphaned root JS/CSS files.')
           PY

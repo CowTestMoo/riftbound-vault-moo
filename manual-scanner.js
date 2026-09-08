@@ -97,7 +97,7 @@
     const changed=Math.max(0,owned(code)-before);
     const status=document.getElementById('manualScannerStatus');
     if(status)status.textContent=changed?`Added ${changed}× ${nameOf(card)}.`:'No copies were added.';
-    if(changed){window.RiftboundTheme?.play?.('add');window.RiftboundNeonFX?.trigger?.('inventory')}
+    if(changed)window.RiftboundTheme?.play?.('add');
     renderResults();
   }
 

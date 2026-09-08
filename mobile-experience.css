@@ -23,9 +23,6 @@
   .mobile-filter-btn b{font-size:1rem;color:#c7efff}
   .mobile-filter-btn span{font-size:.7rem;white-space:nowrap}
   .mobile-filter-btn i{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#a9e8ff;color:#071321;font-size:.58rem;font-style:normal;margin-left:2px}
-  body[data-vault-theme="neon"] .mobile-filter-btn{border-color:rgba(57,255,216,.28);background:linear-gradient(180deg,rgba(11,35,39,.97),rgba(6,12,23,.99));color:#b8fff1}
-  body[data-vault-theme="neon"] .mobile-filter-btn b{color:#74ffe4;text-shadow:0 0 10px rgba(57,255,216,.38)}
-  body[data-vault-theme="neon"] .mobile-filter-btn i{background:#5dffe1;color:#041411}
 
   /* Explicitly opened modal sheets. These are not scroll-following page controls. */
   .mobile-sheet-layer{display:block;position:fixed;inset:0;z-index:7600;pointer-events:none}
@@ -39,8 +36,6 @@
   .mobile-sheet-close{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto;border:1px solid rgba(121,160,255,.20);border-radius:50%;background:rgba(11,18,36,.94);color:#dce9ff;font-size:1.25rem;padding:0}
   .mobile-sheet-body{padding-top:12px}
   body.mobile-sheet-open{overflow:hidden}
-  body[data-vault-theme="neon"] .mobile-sheet{border-color:rgba(57,255,216,.30);background:radial-gradient(circle at 70% 0,rgba(255,60,247,.08),transparent 36%),radial-gradient(circle at 30% 0,rgba(57,255,216,.10),transparent 36%),linear-gradient(180deg,rgba(6,20,28,.997),rgba(5,7,17,.999));box-shadow:-7px -8px 32px rgba(255,60,247,.07),7px -10px 40px rgba(57,255,216,.08),0 -18px 60px rgba(0,0,0,.52)}
-  body[data-vault-theme="neon"] .mobile-sheet-head{border-color:rgba(57,255,216,.14)}
   @keyframes mobileSheetIn{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
 
   /* Center Tools launcher menu. Scanner is intentionally the hero action on phones. */
@@ -52,10 +47,6 @@
   .mobile-tool-primary>b{width:44px;height:44px;border-radius:14px;background:rgba(255,225,159,.11);color:#ffe8ad;font-size:1.45rem;box-shadow:0 0 18px rgba(255,225,159,.08)}
   .mobile-tool-primary strong{font-size:.9rem}.mobile-tool-primary small{font-size:.65rem}
   .mobile-all-tools{width:100%;margin-top:9px;border:1px solid rgba(121,160,255,.15);border-radius:12px;background:rgba(7,13,27,.72);color:#91a8cd;padding:10px;font-size:.68rem;font-weight:800}
-  body[data-vault-theme="neon"] .mobile-tool-action{border-color:rgba(57,255,216,.16);background:linear-gradient(180deg,rgba(9,30,35,.88),rgba(6,10,20,.94))}
-  body[data-vault-theme="neon"] .mobile-tool-action>b{background:rgba(57,255,216,.08);color:#7dffe8}
-  body[data-vault-theme="neon"] .mobile-tool-primary{border-color:rgba(57,255,216,.40);background:radial-gradient(circle at 18% 0,rgba(255,60,247,.13),transparent 42%),radial-gradient(circle at 80% 0,rgba(57,255,216,.13),transparent 42%),linear-gradient(180deg,rgba(10,38,41,.97),rgba(6,11,21,.98))}
-  body[data-vault-theme="neon"] .mobile-tool-primary>b{background:rgba(57,255,216,.10);color:#78ffe5;text-shadow:-2px 0 rgba(255,60,247,.30),2px 0 rgba(57,255,216,.35),0 0 12px rgba(57,255,216,.35)}
 
   /* Filter sheet */
   .mobile-filter-section{padding:2px 0 12px}.mobile-filter-section+h3{margin-top:4px}
@@ -65,7 +56,6 @@
   .mobile-filter-choice.active{border-color:rgba(124,230,255,.42);background:linear-gradient(180deg,rgba(34,66,93,.96),rgba(17,38,66,.98));color:#f1fbff;box-shadow:0 0 13px rgba(124,230,255,.08)}
   .mobile-owned-choice{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid rgba(121,160,255,.14);border-radius:14px;background:rgba(8,15,29,.72);padding:11px;margin:1px 0 12px}.mobile-owned-choice span{min-width:0}.mobile-owned-choice strong,.mobile-owned-choice small{display:block}.mobile-owned-choice strong{font-size:.76rem}.mobile-owned-choice small{color:#8297ba;font-size:.62rem;margin-top:2px}.mobile-owned-choice input{width:20px;height:20px}
   .mobile-filter-footer{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}.mobile-filter-footer button{margin:0!important;min-height:42px}
-  body[data-vault-theme="neon"] .mobile-filter-choice.active{border-color:rgba(57,255,216,.48);background:linear-gradient(180deg,rgba(15,64,61,.95),rgba(8,31,36,.98));color:#c8fff5}
 
   /* Mobile card quick actions */
   .mobile-card-hero{display:grid;grid-template-columns:82px 1fr;gap:11px;align-items:start}.mobile-card-hero>img{width:82px;aspect-ratio:744/1039;object-fit:cover;border-radius:10px;border:1px solid rgba(121,160,255,.17);box-shadow:0 8px 22px rgba(0,0,0,.30)}

@@ -27,8 +27,6 @@
   }
   function writeUX(patch){
     const raw={...rawUX(),...patch};
-    delete raw.neonSound;
-    delete raw.neonVolume;
     const next={...raw,intensity:'supernova',background:100,sound:false,cosmicVolume:100};
     localStorage.setItem(UX_KEY,JSON.stringify(next));
     return next;
@@ -54,7 +52,6 @@
   }
 
   function cleanLegacyThemeControls(){
-    document.getElementById('intensitySelect')?.closest('.setting-row')?.remove();
     document.getElementById('soundToggle')?.closest('.setting-row')?.remove();
     document.getElementById('soundVolume')?.closest('.setting-row')?.remove();
     document.getElementById('themeAudioVolumeRow')?.remove();

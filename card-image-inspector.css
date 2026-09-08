@@ -12,8 +12,6 @@
 .card-image-inspector-stage.zoomed img{max-width:none;max-height:none;width:auto;height:auto;min-width:min(1100px,190%);cursor:zoom-out;margin:auto}
 .card-image-inspector-hint{display:block;text-align:center;color:#8096ba;font-size:.62rem;margin-top:8px}
 #cardDialog img.detail-image,#publicCardDialog img.detail-image,#mobileCardSheet .mobile-card-hero img{cursor:zoom-in}
-body[data-vault-theme="neon"] .card-image-inspector{border-color:rgba(57,255,216,.34);background:rgba(3,8,14,.99);box-shadow:-8px 0 36px rgba(255,60,247,.08),8px 0 42px rgba(57,255,216,.1),0 28px 90px rgba(0,0,0,.76)}
-body[data-vault-theme="neon"] .card-image-inspector-stage{border-color:rgba(57,255,216,.16);background:radial-gradient(circle at 60% 20%,rgba(57,255,216,.08),transparent 36%),radial-gradient(circle at 30% 70%,rgba(255,60,247,.06),transparent 40%),rgba(1,5,9,.85)}
 @media(max-width:700px){
   .card-image-inspector{width:calc(100vw - 12px);max-height:calc(100dvh - 18px);border-radius:17px}
   .card-image-inspector-shell{padding:10px}

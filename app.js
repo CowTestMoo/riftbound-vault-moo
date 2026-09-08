@@ -16,8 +16,6 @@ let renderSignalFrame=0;
 let cardSearchFrame=0;
 let catalogLoadId=0;
 const renderSignalScopes=new Set();
-let cardPreloadStarted=false;
-const cardPreloadImages=new Set();
 
 const $ = id => document.getElementById(id);
 const qsa = (s,r=document) => [...r.querySelectorAll(s)];
@@ -147,45 +145,6 @@ function describeStorageBox(box){
   return `${domainText} • ${ruleText}`;
 }
 
-function preloadHalfCatalog(cards){
-  if(cardPreloadStarted)return;
-  cardPreloadStarted=true;
-  const target=Math.ceil(cards.length/2);
-  const urls=[];
-  const seen=new Set();
-  for(const card of cards){
-    if(!card.imageUrl||seen.has(card.imageUrl))continue;
-    seen.add(card.imageUrl);urls.push(card.imageUrl);
-    if(urls.length>=target)break;
-  }
-  let cursor=0,active=0,pumpScheduled=false;
-  const concurrency=4;
-  const pump=()=>{
-    if(document.hidden)return;
-    while(active<concurrency&&cursor<urls.length){
-      const image=new Image();active++;cardPreloadImages.add(image);
-      image.decoding='async';image.fetchPriority='low';
-      image.onload=image.onerror=()=>{active--;cardPreloadImages.delete(image);schedulePump()};
-      image.src=urls[cursor++];
-    }
-    if(cursor>=urls.length&&active===0){
-      document.removeEventListener('visibilitychange',resume);
-      window.dispatchEvent(new CustomEvent('riftbound-card-preload-complete',{detail:{count:urls.length}}));
-    }
-  };
-  const schedulePump=()=>{
-    if(pumpScheduled)return;
-    pumpScheduled=true;
-    const run=()=>{pumpScheduled=false;pump()};
-    if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:800});
-    else setTimeout(run,80);
-  };
-  const resume=()=>{if(!document.hidden)schedulePump()};
-  const start=()=>{schedulePump();window.dispatchEvent(new CustomEvent('riftbound-card-preload-started',{detail:{count:urls.length}}))};
-  document.addEventListener('visibilitychange',resume);
-  if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:1200});else setTimeout(start,120);
-}
-
 function catalogRequestUrl(attempt){
   const url=new URL('./data/cards.json',location.href);
   url.searchParams.set('rv',attempt?`retry-${Date.now()}`:'startup-3');
@@ -239,7 +198,6 @@ async function loadCatalog(){
     $('catalogStatus').textContent=`${catalog.length.toLocaleString()} cards loaded`;
     renderAll();
     window.dispatchEvent(new CustomEvent('riftbound-catalog-ready',{detail:{catalog}}));
-    preloadHalfCatalog(catalog);
   }catch(err){
     if(loadId!==catalogLoadId)return;
     console.error(err);

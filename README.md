@@ -22,7 +22,7 @@ Riftbound Vault is a responsive collection manager for Riftbound cards. It track
 - Friend library browsing
 - Full-size card inspection
 - Desktop, tablet, and mobile interaction layers
-- Cosmic and neon themes
+- Cosmic theme with deferred visual and audio loading
 - JSON backup/export
 - Event-driven cloud sync without constant polling
 
@@ -38,7 +38,7 @@ Authentication sessions are stored per the user's "Stay signed in" preference. P
 
 - Card images use lazy loading where appropriate.
 - Cloud sync is event-driven and does not continuously poll the database.
-- Theme-specific visual and audio assets load only for the selected theme.
+- Cosmic visual and audio assets are deferred until the core catalog is ready and the browser is idle.
 - The old service worker/PWA experiment is retired. Startup code removes stale Riftbound Vault registrations and caches left on older browsers.
 - Device-specific helpers should avoid running on device classes they do not target.
 

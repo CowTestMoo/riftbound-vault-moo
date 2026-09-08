@@ -10,6 +10,18 @@ test.beforeEach(async ({ page }) => {
   const pageErrors = [];
   const badLocalResponses = [];
 
+  await page.route('**/*', route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (
+      url.origin !== 'http://127.0.0.1:4173' &&
+      ['image', 'media', 'font'].includes(request.resourceType())
+    ) {
+      return route.abort();
+    }
+    return route.continue();
+  });
+
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('response', response => {
     const url = new URL(response.url());

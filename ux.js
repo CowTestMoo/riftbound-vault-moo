@@ -10,7 +10,6 @@
   let settings=loadSettings();
   let hoverTimer=0;
   let currentHover='';
-  let audioCtx=null;
   let lastSetCompletion=new Map();
   let stateCache=null;
   let refreshFrame=0;
@@ -18,8 +17,8 @@
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function loadSettings(){
-    try{return {density:'normal',intensity:'cosmic',background:98,sound:false,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')};}
-    catch{return {density:'normal',intensity:'cosmic',background:98,sound:false};}
+    try{return {density:'normal',...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')};}
+    catch{return {density:'normal'};}
   }
   function saveSettings(){localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));}
   function invalidateState(){stateCache=null}
@@ -68,7 +67,7 @@
     if(cardsView&&!document.getElementById('uxControls')){
       const controls=document.createElement('div');
       controls.id='uxControls';controls.className='ux-controls';
-      controls.innerHTML=`<div class="ux-control-group"><span class="ux-control-label">Grid</span><button class="ux-segment" data-density="compact">Compact</button><button class="ux-segment" data-density="normal">Normal</button><button class="ux-segment" data-density="large">Large</button></div><button class="ghost-btn ux-settings-btn" id="uxSettingsBtn" type="button">Cosmic Settings</button>`;
+      controls.innerHTML=`<div class="ux-control-group"><span class="ux-control-label">Grid</span><button class="ux-segment" data-density="compact">Compact</button><button class="ux-segment" data-density="normal">Normal</button><button class="ux-segment" data-density="large">Large</button></div><button class="ghost-btn ux-settings-btn" id="uxSettingsBtn" type="button">Settings</button>`;
       const toolbar=cardsView.querySelector('.toolbar');
       toolbar?.insertAdjacentElement('afterend',controls);
       const summary=document.createElement('div');summary.id='filterSummary';summary.className='filter-summary';summary.innerHTML='<div class="filter-summary-text">All cards</div><button class="clear-filters" id="clearFiltersBtn" type="button">Clear filters</button>';
@@ -78,7 +77,7 @@
     if(!document.getElementById('quickCard')){const q=document.createElement('aside');q.id='quickCard';q.className='quick-card';q.setAttribute('aria-hidden','true');document.body.appendChild(q);}
     if(!document.getElementById('uxSettings')){
       const p=document.createElement('aside');p.id='uxSettings';p.className='settings-popover';p.hidden=true;
-      p.innerHTML=`<div class="settings-head"><h3>Cosmic Settings</h3><button class="settings-close" type="button" aria-label="Close">×</button></div><div class="setting-row"><div class="setting-copy"><strong>Theme intensity</strong><small>How energetic the interface effects feel.</small></div><select id="intensitySelect"><option value="calm">Calm</option><option value="cosmic">Cosmic</option><option value="supernova">Supernova</option></select></div><div class="setting-row"><div class="setting-copy"><strong>Background brightness</strong><small>Adjust stars, nebulae, and constellations.</small></div><input id="backgroundRange" type="range" min="25" max="100" step="1"></div><div class="setting-row"><div class="setting-copy"><strong>Cosmic sounds</strong><small>Optional quiet chimes. Off by default.</small></div><input id="soundToggle" class="sound-toggle" type="checkbox" aria-label="Cosmic sounds"></div>`;
+      p.innerHTML=`<div class="settings-head"><h3>Settings</h3><button class="settings-close" type="button" aria-label="Close">×</button></div>`;
       document.body.appendChild(p);
     }
     if(!document.getElementById('routeToast')){const t=document.createElement('div');t.id='routeToast';t.className='route-toast';document.body.appendChild(t);}
@@ -92,13 +91,9 @@
   }
 
   function applySettings(){
-    document.body.dataset.intensity=settings.intensity;
-    document.documentElement.style.setProperty('--sky-opacity',String(Math.max(.25,Math.min(1,Number(settings.background)/100))));
+    document.body.dataset.intensity='supernova';
     const grid=document.getElementById('cardGrid');if(grid)grid.dataset.density=settings.density;
     document.querySelectorAll('[data-density]').forEach(b=>b.classList.toggle('active',b.dataset.density===settings.density));
-    const sel=document.getElementById('intensitySelect');if(sel)sel.value=settings.intensity;
-    const range=document.getElementById('backgroundRange');if(range)range.value=String(settings.background);
-    const sound=document.getElementById('soundToggle');if(sound)sound.checked=!!settings.sound;
   }
 
   function activeFilterText(){
@@ -186,7 +181,7 @@
   }
   function celebrateCompletion(setName){
     if(reduce.matches)return;
-    const e=document.createElement('div');e.className='completion-burst';e.innerHTML=`<div class="completion-ring"></div><div class="completion-message"><strong>Set Complete ✦</strong><span>${setName}</span></div>`;document.body.appendChild(e);playTone('complete');setTimeout(()=>e.remove(),2400);
+    const e=document.createElement('div');e.className='completion-burst';e.innerHTML=`<div class="completion-ring"></div><div class="completion-message"><strong>Set Complete ✦</strong><span>${setName}</span></div>`;document.body.appendChild(e);setTimeout(()=>e.remove(),2400);
   }
 
   function quickCardHtml(code){
@@ -204,16 +199,7 @@
   }
 
   function showRoute(code,delta){
-    const c=catalogByCode.get(code);if(!c||delta<=0)return;const loc=locationFor(c),toast=document.getElementById('routeToast');if(!toast)return;toast.innerHTML=`<span class="route-trail">✦ →</span><strong>${nameOf(c)}</strong> → ${loc.box?`Box ${loc.box} • ${loc.domain} ${loc.bucket} • ${loc.section}`:'Unassigned storage'}`;toast.classList.add('show');playTone('add');clearTimeout(showRoute.timer);showRoute.timer=setTimeout(()=>toast.classList.remove('show'),2700);}
-
-  function playTone(kind){
-    if(!settings.sound)return;
-    try{
-      audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
-      const now=audioCtx.currentTime,osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
-      osc.type='sine';osc.frequency.setValueAtTime(kind==='complete'?660:520,now);osc.frequency.exponentialRampToValueAtTime(kind==='complete'?990:720,now+.16);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.035,now+.025);gain.gain.exponentialRampToValueAtTime(.0001,now+.22);osc.connect(gain).connect(audioCtx.destination);osc.start(now);osc.stop(now+.24);
-    }catch{}
-  }
+    const c=catalogByCode.get(code);if(!c||delta<=0)return;const loc=locationFor(c),toast=document.getElementById('routeToast');if(!toast)return;toast.innerHTML=`<span class="route-trail">✦ →</span><strong>${nameOf(c)}</strong> → ${loc.box?`Box ${loc.box} • ${loc.domain} ${loc.bucket} • ${loc.section}`:'Unassigned storage'}`;toast.classList.add('show');clearTimeout(showRoute.timer);showRoute.timer=setTimeout(()=>toast.classList.remove('show'),2700);}
 
   function switchTab(tab){document.querySelector(`.tab[data-tab="${tab}"]`)?.click();syncMobileNav();}
   function syncMobileNav(){const active=document.querySelector('.tab.active')?.dataset.tab;document.querySelectorAll('[data-mobile-tab]').forEach(b=>b.classList.toggle('active',b.dataset.mobileTab===active));}
@@ -252,11 +238,6 @@
     const add=event.target.closest('[data-adjust],[data-bulk]');if(add){const delta=Number(add.dataset.adjust??add.dataset.bulk??0);if(delta>0)setTimeout(()=>showRoute(add.dataset.code,delta),40);}
   },true);
 
-  document.addEventListener('change',event=>{
-    if(event.target.id==='intensitySelect'){settings.intensity=event.target.value;saveSettings();applySettings();}
-    if(event.target.id==='soundToggle'){settings.sound=event.target.checked;saveSettings();if(settings.sound)playTone('add');}
-  });
-  document.addEventListener('input',event=>{if(event.target.id==='backgroundRange'){settings.background=Number(event.target.value);saveSettings();applySettings();}});
   document.addEventListener('focusin',event=>{if(event.target.matches?.('input[type="search"],input[placeholder^="Search"],#cardSearch'))hardenSearchInputs(event.target.parentElement||document);},true);
 
   document.addEventListener('mouseover',event=>{const tile=event.target.closest('.card-tile[data-card]');if(tile&&!tile.contains(event.relatedTarget))showQuick(tile,event);});

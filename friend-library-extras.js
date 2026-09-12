@@ -17,15 +17,26 @@
     const panel=document.querySelector('#collectionDashboard .recent-panel'),head=panel?.querySelector('.dashboard-head'),strip=panel?.querySelector('.recent-strip');if(!head||!strip)return;
     let button=head.querySelector('#clearRecentBtn');if(!button){button=document.createElement('button');button.id='clearRecentBtn';button.type='button';button.className='clear-recent-btn';button.textContent='Clear';head.appendChild(button)}
     const tx=positiveRecentTransactions(),map=catalogByCode();
-    const html=tx.length?tx.map(t=>{const card=map.get(t.cardCode),title=card?.fullName||card?.name||t.cardCode||'Unknown card';return `<button class="recent-card" type="button" data-recent-card="${esc(t.cardCode||'')}">${card?.imageUrl?`<img src="${esc(card.imageUrl)}" alt="">`:''}<span><strong>${esc(title)}</strong><small>+${Number(t.delta)||0} added</small></span></button>`}).join(''):'<div class="recent-empty">Cards you add will appear here.</div>';
-    if(strip.innerHTML!==html)strip.innerHTML=html;button.disabled=!tx.length;
+    const rows=tx.map(t=>{const card=map.get(t.cardCode),title=card?.fullName||card?.name||t.cardCode||'Unknown card';return {id:t.id||'',code:t.cardCode||'',delta:Number(t.delta)||0,at:t.at||'',title,imageUrl:card?.imageUrl||''}});
+    const signature=JSON.stringify(rows);
+    if(strip.dataset.recentSignature!==signature){
+      strip.dataset.recentSignature=signature;
+      strip.innerHTML=rows.length?rows.map(row=>`<button class="recent-card" type="button" data-recent-card="${esc(row.code)}">${row.imageUrl?`<img src="${esc(row.imageUrl)}" alt="">`:''}<span><strong>${esc(row.title)}</strong><small>+${row.delta} added</small></span></button>`).join(''):'<div class="recent-empty">Cards you add will appear here.</div>';
+    }
+    const disabled=!rows.length;
+    if(button.disabled!==disabled)button.disabled=disabled;
   }
   function clearRecentlyAdded(){const ux=readJson(UX_KEY,{});ux.recentClearedAt=Date.now();localStorage.setItem(UX_KEY,JSON.stringify(ux));renderRecentPanel()}
   function queueScreenRefresh(){if(screenRefreshFrame)return;screenRefreshFrame=requestAnimationFrame(()=>{screenRefreshFrame=0;syncLibraryScrollLock();stripLegacyDeckPrivacyControls()})}
   function queueRecentRefresh(){if(recentRefreshFrame)return;recentRefreshFrame=requestAnimationFrame(()=>{recentRefreshFrame=0;renderRecentPanel()})}
   function wireObservers(){
     const screen=document.getElementById('friendLibraryScreen');if(screen&&!libraryObserver){libraryObserver=new MutationObserver(queueScreenRefresh);libraryObserver.observe(screen,{childList:true,subtree:true})}
-    const dashboard=document.getElementById('collectionDashboard');if(dashboard&&!recentObserver){recentObserver=new MutationObserver(queueRecentRefresh);recentObserver.observe(dashboard,{childList:true,subtree:true})}
+    const dashboard=document.getElementById('collectionDashboard');if(dashboard&&!recentObserver){
+      recentObserver=new MutationObserver(records=>{
+        if(records.some(record=>!(record.target?.nodeType===1&&record.target.closest?.('.recent-panel'))))queueRecentRefresh();
+      });
+      recentObserver.observe(dashboard,{childList:true,subtree:true});
+    }
   }
 
   document.addEventListener('click',event=>{

@@ -32,15 +32,15 @@
     const bulkEntry=document.getElementById('bulkEntryBtn');
 
     if(bulkAdd){
-      bulkAdd.classList.remove('primary-btn','ghost-btn','active');
-      bulkAdd.classList.add('tab','bulk-add-tab');
+      bulkAdd.classList.remove('primary-btn','ghost-btn','tab','active');
+      bulkAdd.classList.add('utility-tab-action','bulk-add-tab');
       bulkAdd.removeAttribute('aria-current');
       if(browse.nextElementSibling!==bulkAdd)browse.insertAdjacentElement('afterend',bulkAdd);
     }
 
     if(bulkEntry){
-      bulkEntry.classList.remove('primary-btn','ghost-btn','active');
-      bulkEntry.classList.add('tab','bulk-entry-tab');
+      bulkEntry.classList.remove('primary-btn','ghost-btn','tab','active');
+      bulkEntry.classList.add('utility-tab-action','bulk-entry-tab');
       bulkEntry.removeAttribute('aria-current');
       const anchor=bulkAdd||browse;
       if(anchor.nextElementSibling!==bulkEntry)anchor.insertAdjacentElement('afterend',bulkEntry);

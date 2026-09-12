@@ -25,7 +25,7 @@
     const summary=panel.querySelector('.value-summary');if(summary&&!summary.querySelector('.live-price-source'))summary.insertAdjacentHTML('beforeend',' <span class="live-price-source">• Live daily feed</span>')
   }
   async function load(){
-    try{const r=await fetch('./data/prices.json',{cache:'no-store'});if(!r.ok)throw new Error(`HTTP ${r.status}`);const raw=await r.json();live={cards:raw.cards||raw.prices||{},updatedAt:raw.updatedAt||raw.generatedAt||null,source:raw.source||'TCGplayer via TCGCSV'};merge();updateCopy();window.dispatchEvent(new CustomEvent('riftbound-prices-loaded',{detail:{count:Object.keys(live.cards).length,updatedAt:live.updatedAt}}))}catch(err){console.info('Automatic prices are waiting for the first daily price sync.',err.message)}
+    try{const r=await fetch('./data/prices.json',{cache:'no-cache'});if(!r.ok)throw new Error(`HTTP ${r.status}`);const raw=await r.json();live={cards:raw.cards||raw.prices||{},updatedAt:raw.updatedAt||raw.generatedAt||null,source:raw.source||'TCGplayer via TCGCSV'};merge();updateCopy();window.dispatchEvent(new CustomEvent('riftbound-prices-loaded',{detail:{count:Object.keys(live.cards).length,updatedAt:live.updatedAt}}))}catch(err){console.info('Automatic prices are waiting for the first daily price sync.',err.message)}
   }
   function init(){
     load();

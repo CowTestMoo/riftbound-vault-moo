@@ -1,0 +1,42 @@
+/* Responsive dialog guardrails: keep popup content visible without horizontal scrolling. */
+.modal{max-width:calc(100vw - 24px);overflow-y:auto;overflow-x:hidden}
+.modal>.modal-inner,.modal .modal-inner{width:100%;min-width:0;max-width:100%;overflow-x:hidden}
+
+/* Editors that genuinely benefit from more room can use the viewport instead of overflowing a 760px dialog. */
+#bulkDialog,#deckDialog,#loanDialog,#storageDialog,.modal:has(.wide-editor),.modal:has(.loan-group-editor){width:min(1120px,calc(100vw - 24px))}
+.loan-group-editor,.wide-editor,.feature-editor{width:100%;min-width:0;max-width:100%}
+
+/* Grid/flex children are allowed to shrink instead of increasing dialog scrollWidth. */
+.modal *{min-inline-size:0}
+.modal img,.modal video,.modal canvas,.modal svg{max-width:100%}
+.modal input,.modal select,.modal textarea{max-width:100%;min-width:0}
+.modal .feature-search-results,.modal .feature-selected-list,.modal .bulk-results,.modal .bulk-fast-results{overflow-x:hidden}
+.modal .feature-search-row{grid-template-columns:42px minmax(0,1fr) auto}
+.modal .bulk-row{grid-template-columns:45px minmax(0,1fr) auto}
+.modal .bulk-fast-row{grid-template-columns:42px minmax(0,1fr) auto}
+.modal .value-row{grid-template-columns:42px minmax(0,1fr) minmax(90px,120px) minmax(70px,90px)}
+.modal .selected-card-row{min-width:0}
+.modal .selected-card-row>span,.modal .feature-search-row>span,.modal .bulk-row>*,.modal .bulk-fast-row>*{min-width:0}
+.modal strong,.modal small,.modal p,.modal label{overflow-wrap:anywhere}
+
+/* Keep actions usable when a card name or control group is long. */
+.modal .selected-card-row>div,.modal .modal-actions,.modal .footer-row,.modal .feature-card-actions{flex-wrap:wrap}
+
+/* Tablet layouts need one column before they become narrow enough to overflow. */
+@media(max-width:960px){
+  .loan-editor-layout,.deck-editor-layout,.trade-editor-columns,.scanner-grid{grid-template-columns:1fr!important;min-height:0}
+  .feature-form-grid{grid-template-columns:1fr}
+  .modal .value-row{grid-template-columns:38px minmax(0,1fr) minmax(86px,105px)}
+  .modal .value-row>b{grid-column:2/4}
+}
+
+@media(max-width:560px){
+  .modal{width:calc(100vw - 12px)!important;max-width:calc(100vw - 12px);max-height:92dvh;border-radius:14px}
+  .modal-inner{padding:14px}
+  .modal-head{align-items:flex-start}
+  .modal .feature-search-row{grid-template-columns:34px minmax(0,1fr) auto}
+  .modal .bulk-row,.modal .bulk-fast-row{grid-template-columns:34px minmax(0,1fr)}
+  .modal .bulk-buttons,.modal .bulk-fast-row>div{grid-column:2;flex-wrap:wrap}
+  .modal .selected-card-row{align-items:flex-start;flex-direction:column}
+  .modal .selected-card-row>div{width:100%;justify-content:flex-start}
+}

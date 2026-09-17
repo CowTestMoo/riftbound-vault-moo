@@ -6,6 +6,15 @@ async function waitForCatalog(page) {
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
 }
 
+async function expectNoHorizontalOverflow(locator) {
+  await expect(locator).toBeVisible();
+  const dimensions = await locator.evaluate(el => ({
+    clientWidth: el.clientWidth,
+    scrollWidth: el.scrollWidth
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+}
+
 test.beforeEach(async ({ page }) => {
   const pageErrors = [];
   const badLocalResponses = [];
@@ -64,6 +73,7 @@ test('settings are Cosmic-only and remain usable', async ({ page }) => {
   await expect(panel).not.toContainText(/neon/i);
   await expect(page.locator('#intensitySelect')).toHaveCount(0);
   await expect(page.locator('#themeAudioToggle')).toHaveCount(1);
+  await expect(page.locator('#animationsToggle')).toHaveCount(1);
 
   await page.locator('.settings-close').click();
   await expect(panel).toBeHidden();
@@ -97,10 +107,24 @@ test('search and card dialog interactions remain responsive', async ({ page }) =
 
   await page.locator('#cardGrid .card-tile').first().click();
   const dialog = page.locator('#cardDialog');
-  await expect(dialog).toBeVisible();
+  await expectNoHorizontalOverflow(dialog);
   await dialog.locator('[data-close="cardDialog"]').click();
   await expect(dialog).toBeHidden();
 
   await search.fill('');
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
+});
+
+test('loan editor fits without horizontal scrolling', async ({ page }) => {
+  await page.locator('.tab[data-tab="loans"]').click();
+  await expect(page.locator('#loansView')).toHaveClass(/active/);
+  await page.locator('#newLoanBtn').click();
+
+  const dialog = page.locator('#loanDialog');
+  await expect(dialog.locator('.loan-group-editor')).toBeVisible();
+  await expectNoHorizontalOverflow(dialog);
+  await expectNoHorizontalOverflow(dialog.locator('.loan-group-editor'));
+
+  await dialog.locator('[data-loan-manager-close]').click();
+  await expect(dialog).toBeHidden();
 });

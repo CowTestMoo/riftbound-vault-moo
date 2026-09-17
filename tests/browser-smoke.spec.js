@@ -6,6 +6,40 @@ async function waitForCatalog(page) {
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
 }
 
+async function expectNoHorizontalOverflow(locator) {
+  await expect(locator).toBeVisible();
+  const report = await locator.evaluate(root => {
+    const rootRect = root.getBoundingClientRect();
+    const offenders = [...root.querySelectorAll('*')]
+      .filter(node => {
+        const style = getComputedStyle(node);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        const rect = node.getBoundingClientRect();
+        if (!rect.width && !rect.height) return false;
+        return rect.left < rootRect.left - 1 || rect.right > rootRect.right + 1;
+      })
+      .slice(0, 8)
+      .map(node => ({
+        tag: node.tagName,
+        id: node.id || '',
+        className: typeof node.className === 'string' ? node.className : ''
+      }));
+    return {
+      overflow: Math.max(0, root.scrollWidth - root.clientWidth),
+      offenders
+    };
+  });
+  expect(report.overflow).toBeLessThanOrEqual(1);
+  expect(report.offenders).toEqual([]);
+}
+
+async function closeDialog(dialog) {
+  await dialog.evaluate(node => {
+    if (node.open) node.close();
+  });
+  await expect(dialog).toBeHidden();
+}
+
 test.beforeEach(async ({ page }) => {
   const pageErrors = [];
   const badLocalResponses = [];
@@ -64,6 +98,8 @@ test('settings are Cosmic-only and remain usable', async ({ page }) => {
   await expect(panel).not.toContainText(/neon/i);
   await expect(page.locator('#intensitySelect')).toHaveCount(0);
   await expect(page.locator('#themeAudioToggle')).toHaveCount(1);
+  await expect(page.locator('#animationsToggle')).toHaveCount(1);
+  await expectNoHorizontalOverflow(panel);
 
   await page.locator('.settings-close').click();
   await expect(panel).toBeHidden();
@@ -84,6 +120,7 @@ test('responsive controls do not leave scroll locks behind', async ({ page }) =>
   const sheet = page.locator('#mobileFilterSheet');
   await expect(sheet).toBeVisible();
   await expect(page.locator('body')).toHaveClass(/mobile-sheet-open/);
+  await expectNoHorizontalOverflow(sheet);
 
   await sheet.locator('[data-mobile-sheet-close="mobileFilterSheet"]').last().click();
   await expect(sheet).toBeHidden();
@@ -97,10 +134,38 @@ test('search and card dialog interactions remain responsive', async ({ page }) =
 
   await page.locator('#cardGrid .card-tile').first().click();
   const dialog = page.locator('#cardDialog');
-  await expect(dialog).toBeVisible();
+  await expectNoHorizontalOverflow(dialog);
   await dialog.locator('[data-close="cardDialog"]').click();
   await expect(dialog).toBeHidden();
 
   await search.fill('');
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
+});
+
+test('editors fit without horizontal scrolling', async ({ page }) => {
+  const bulkDialog = page.locator('#bulkDialog');
+  await page.locator('#bulkAddBtn').click();
+  await expectNoHorizontalOverflow(bulkDialog);
+  await closeDialog(bulkDialog);
+
+  await page.locator('.tab[data-tab="loans"]').click();
+  await page.locator('#newLoanBtn').click();
+  const loanDialog = page.locator('#loanDialog');
+  await expectNoHorizontalOverflow(loanDialog);
+  await expect(loanDialog.locator('.loan-editor-layout')).toBeVisible();
+  await closeDialog(loanDialog);
+
+  await page.locator('.tab[data-tab="decks"]').click();
+  await page.locator('#newDeckBtn').click();
+  const deckDialog = page.locator('#deckDialog');
+  await expectNoHorizontalOverflow(deckDialog);
+  await closeDialog(deckDialog);
+
+  await page.locator('.tab[data-tab="storage"]').click();
+  const customizeStorage = page.locator('#customizeStorageBtn');
+  await expect(customizeStorage).toBeVisible();
+  await customizeStorage.click();
+  const storageDialog = page.locator('#storageDialog');
+  await expectNoHorizontalOverflow(storageDialog);
+  await closeDialog(storageDialog);
 });

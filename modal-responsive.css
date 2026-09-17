@@ -1,0 +1,55 @@
+/* Shared responsive dialog sizing and overflow guards */
+.modal{
+  width:min(1120px,calc(100vw - 32px));
+  max-width:calc(100vw - 32px);
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+.modal>.modal-inner,
+.modal .modal-inner,
+.modal .feature-editor,
+.modal .wide-editor,
+.modal .loan-group-editor,
+.modal .bulk-entry-inner,
+.modal .bulk-match-inner,
+.modal .spreadsheet-import-inner,
+.modal .spreadsheet-resolver-inner,
+.modal .storage-setup-inner{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+}
+.cloud-auth-dialog{width:min(520px,calc(100vw - 24px));max-width:calc(100vw - 24px)}
+.modal :is(input,select,textarea,button){max-width:100%}
+.modal :is(.feature-search-results,.feature-selected-list,.bulk-entry-results,.bulk-fast-results,.storage-setup-list,.resolver-candidates,.spreadsheet-preview){overflow-x:hidden}
+.modal :is(.feature-search-row,.selected-card-row,.bulk-entry-result-row,.bulk-set-row,.bulk-match-card,.value-row,.storage-rule-card,.spreadsheet-tr)>*{min-width:0}
+.modal :is(strong,small,p,span,label){overflow-wrap:anywhere;word-break:normal}
+.selected-card-row{flex-wrap:wrap}.selected-card-row>span{flex:1 1 180px;min-width:0}.selected-card-row>div{flex-wrap:wrap;justify-content:flex-end}
+.loan-editor-layout,.deck-editor-layout,.trade-editor-columns{min-width:0}
+
+@media(max-width:900px){
+  .modal{width:calc(100vw - 20px);max-width:calc(100vw - 20px);max-height:92dvh}
+  .modal-inner{padding:16px}
+  .loan-editor-layout,.deck-editor-layout,.trade-editor-columns,.scanner-grid{grid-template-columns:1fr!important}
+  .storage-rule-fields{grid-template-columns:1fr!important}
+  .spreadsheet-table{min-width:0!important}
+  .spreadsheet-tr{grid-template-columns:44px minmax(0,1fr) minmax(0,.85fr) 54px 92px!important;gap:6px!important}
+}
+
+@media(max-width:620px){
+  .modal{width:calc(100vw - 10px);max-width:calc(100vw - 10px);border-radius:14px}
+  .modal-inner{padding:14px}
+  .modal-head{align-items:flex-start}
+  .feature-form-grid,.bulk-entry-grid,.bulk-set-toolbar,.bulk-match-grid,.spreadsheet-grid-two,.spreadsheet-mapping,.resolver-row-summary,.storage-setup-summary{grid-template-columns:1fr!important}
+  .bulk-entry-summary,.spreadsheet-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .spreadsheet-table{min-width:0!important}
+  .spreadsheet-tr{display:flex!important;flex-wrap:wrap!important;align-items:flex-start!important;gap:5px 8px!important;padding:9px!important}
+  .spreadsheet-tr>span{flex:1 1 120px;min-width:0!important}
+  .spreadsheet-tr>span:first-child{flex:0 0 38px}
+  .spreadsheet-th{position:static!important}
+  .bulk-entry-result-row{grid-template-columns:36px minmax(0,1fr) 56px!important}
+  .storage-rule-card{grid-template-columns:40px minmax(0,1fr) 28px!important}
+  .storage-rule-meta{margin-left:0!important;flex-wrap:wrap}
+  .modal-actions,.footer-row,.resolver-footer,.storage-setup-footer,.bulk-set-footer,.bulk-sheet-callout{align-items:stretch;flex-direction:column}
+  .modal-actions>button,.footer-row>button,.resolver-footer>button,.storage-setup-footer>button{width:100%}
+}

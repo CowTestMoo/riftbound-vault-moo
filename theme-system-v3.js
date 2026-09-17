@@ -22,7 +22,8 @@
       background:100,
       sound:false,
       cosmicSound:typeof raw.cosmicSound==='boolean'?raw.cosmicSound:true,
-      cosmicVolume:100
+      cosmicVolume:100,
+      animations:typeof raw.animations==='boolean'?raw.animations:true
     };
   }
   function writeUX(patch){
@@ -32,12 +33,14 @@
     return next;
   }
   function enabled(s=readUX()){return !!s.cosmicSound}
+  function animationsEnabled(s=readUX()){return s.animations!==false}
   function volume(){return 1}
 
   function migrate(){
     const raw=rawUX();
     writeUX({
       cosmicSound:typeof raw.cosmicSound==='boolean'?raw.cosmicSound:true,
+      animations:typeof raw.animations==='boolean'?raw.animations:true,
       cosmicOnlyV1:true
     });
   }
@@ -64,6 +67,16 @@
     const panel=document.getElementById('uxSettings');
     if(!panel)return false;
     cleanLegacyThemeControls();
+
+    if(!document.getElementById('motionSettingRow')){
+      const row=document.createElement('div');
+      row.id='motionSettingRow';
+      row.className='setting-row';
+      row.innerHTML='<div class="setting-copy"><strong>Animations</strong><small>Turn off cosmic motion and interface animations to reduce CPU and GPU use while multitasking or watching video.</small></div><div class="settings-inline-actions"><input id="animationsToggle" class="sound-toggle" type="checkbox" aria-label="Enable animations"></div>';
+      const anchor=document.getElementById('themeAudioRow')||document.getElementById('cloudSettingRow')||document.getElementById('dataToolsSetting');
+      if(anchor)anchor.insertAdjacentElement('beforebegin',row);
+      else panel.appendChild(row);
+    }
 
     if(!document.getElementById('themeAudioRow')){
       const row=document.createElement('div');
@@ -97,11 +110,14 @@
     const head=panel.querySelector('.settings-head h3');
     if(head)head.textContent='Settings';
 
+    const motionRow=document.getElementById('motionSettingRow');
     const soundRow=document.getElementById('themeAudioRow');
     const cloud=document.getElementById('cloudSettingRow');
     const data=document.getElementById('dataToolsSetting');
+    ensureSection('motionSettingsTitle','Motion & performance',motionRow);
     ensureSection('soundSettingsTitle','Sound',soundRow);
     if(cloud||data)ensureSection('dataSettingsTitle','Cloud & data',cloud||data);
+    motionRow?.classList.add('motion-setting');
     soundRow?.classList.add('sound-setting');
     cloud?.classList.add('data-setting');
     data?.classList.add('data-setting');
@@ -113,6 +129,9 @@
     document.body.dataset.vaultTheme='cosmic';
     document.body.dataset.intensity='supernova';
     document.documentElement.style.setProperty('--sky-opacity','1');
+    const motionOn=animationsEnabled();
+    document.documentElement.dataset.vaultMotion=motionOn?'on':'off';
+    document.body.dataset.vaultMotion=motionOn?'on':'off';
     ensurePlanet();
 
     const settingsBtn=document.getElementById('uxSettingsBtn');
@@ -121,6 +140,8 @@
     if(subtitle)subtitle.textContent='A Cosmic Riftbound Archive';
     const toggle=document.getElementById('themeAudioToggle');
     if(toggle)toggle.checked=enabled();
+    const animationsToggle=document.getElementById('animationsToggle');
+    if(animationsToggle)animationsToggle.checked=motionOn;
   }
 
   function play(kind='click',force=false){
@@ -161,6 +182,13 @@
   }
 
   document.addEventListener('change',e=>{
+    if(e.target.id==='animationsToggle'){
+      const on=e.target.checked;
+      writeUX({animations:on});
+      apply();
+      window.dispatchEvent(new CustomEvent('riftbound-motion-change',{detail:{enabled:on}}));
+      return;
+    }
     if(e.target.id!=='themeAudioToggle')return;
     const on=e.target.checked;
     writeUX({cosmicSound:on});
@@ -193,7 +221,8 @@
     play,
     refresh,
     getTheme:()=> 'cosmic',
-    getVolume:volume
+    getVolume:volume,
+    animationsEnabled
   };
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});

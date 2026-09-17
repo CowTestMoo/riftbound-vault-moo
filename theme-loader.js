@@ -2,7 +2,7 @@
   'use strict';
 
   const STYLE='cosmic-effects.css?v=cosmic9';
-  const SCRIPTS=['cosmic.js?v=cosmic10','cosmic-audio.js?v=7'];
+  const SCRIPTS=['cosmic.js?v=cosmic11','cosmic-audio.js?v=7'];
   let loading=null;
 
   function addStyle(){

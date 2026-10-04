@@ -35,10 +35,8 @@
             }
           }
         }catch{}
-        if(changed){
-          sessionStorage.setItem(MARK,'1');
-          location.reload();
-        }
+        sessionStorage.setItem(MARK,'1');
+        if(changed)location.reload();
       })();
     })();
   </script>

@@ -17,6 +17,7 @@ async function expectNoHorizontalOverflow(locator) {
 
 test.beforeEach(async ({ page }) => {
   const pageErrors = [];
+  const consoleErrors = [];
   const badLocalResponses = [];
 
   await page.route('**/*', route => {
@@ -32,6 +33,9 @@ test.beforeEach(async ({ page }) => {
   });
 
   page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
   page.on('response', response => {
     const url = new URL(response.url());
     if (url.origin === 'http://127.0.0.1:4173' && response.status() >= 400) {
@@ -40,6 +44,7 @@ test.beforeEach(async ({ page }) => {
   });
 
   page.__rvErrors = pageErrors;
+  page.__rvConsoleErrors = consoleErrors;
   page.__rvBadLocalResponses = badLocalResponses;
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -48,6 +53,7 @@ test.beforeEach(async ({ page }) => {
 
 test.afterEach(async ({ page }) => {
   expect(page.__rvErrors || []).toEqual([]);
+  expect(page.__rvConsoleErrors || []).toEqual([]);
   expect(page.__rvBadLocalResponses || []).toEqual([]);
 });
 
@@ -127,4 +133,41 @@ test('loan editor fits without horizontal scrolling', async ({ page }) => {
 
   await dialog.locator('[data-loan-manager-close]').click();
   await expect(dialog).toBeHidden();
+});
+
+
+test('full page has no horizontal overflow on supported viewports', async ({ page }) => {
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    page: document.documentElement.scrollWidth,
+    body: document.body.scrollWidth
+  }));
+  expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport + 1);
+  expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport + 1);
+});
+
+test('live price feed stays lazy until Collection Values is opened', async ({ page }) => {
+  const priceRequests = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname.endsWith('/data/prices.json')) priceRequests.push(request.url());
+  });
+
+  await page.waitForTimeout(250);
+  expect(priceRequests).toHaveLength(0);
+
+  await page.locator('.tab[data-tab="tools"]').click();
+  const valuesButton = page.locator('[data-tool="values"]');
+  await expect(valuesButton).toBeVisible();
+  await valuesButton.click();
+  await expect.poll(() => priceRequests.length).toBeGreaterThan(0);
+});
+
+test('settings and spreadsheet importer initialize without persistent DOM observers', async ({ page }) => {
+  const settingsButton = page.locator('#uxSettingsBtn');
+  await settingsButton.click();
+  await expect(page.locator('#showSetCompletionToggle')).toHaveCount(1);
+  await expect(page.locator('#spreadsheetImportSetting')).toHaveCount(1);
+  await page.locator('#openSpreadsheetImport').click();
+  await expect(page.locator('#spreadsheetImportDialog')).toBeVisible();
+  await page.locator('[data-close-sheet]').click();
 });

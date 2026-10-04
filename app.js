@@ -189,7 +189,7 @@ async function loadCatalog(){
       const card={...c,cardCode:String(c.cardCode||c.code||c.id||`card-${i}`),fullName:c.fullName||c.name||c.cardCode||`Card ${i}`,cardSet:c.cardSet||c.setName||c.setCode||'Unknown',cardNumber:c.cardNumber||c.collectorNumber||'',cardType:c.cardType||c.type||'Unknown',domains:Array.isArray(c.domains)?c.domains:(c.domain?[c.domain]:[]),domain:c.domain||(Array.isArray(c.domains)?c.domains[0]:'Unassigned'),imageUrl:c.imageUrl||c.image_url||''};
       card._typeKey=norm(card.cardType);
       card._labelKeys=(card.cardTypeLabels||[]).map(norm);
-      card._searchIndex=norm([nameOf(card),card.cardSet,card.cardNumber,card.cardCode,card.cardType].join(' '));
+      card._searchIndex=norm([nameOf(card),card.cardSet,card.setCode,card.cardNumber,card.cardCode,card.cardType].join(' '));
       return card;
     });
     byCode=new Map(catalog.map(c=>[c.cardCode,c]));

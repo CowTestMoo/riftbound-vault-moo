@@ -3,6 +3,17 @@ const { test, expect } = require('@playwright/test');
 async function waitForCatalog(page) {
   const status = page.locator('#catalogStatus');
   await expect(status).toContainText(/cards loaded/i, { timeout: 25000 });
+  await expect(page.locator('#cardGrid .card-tile').first()).toBeAttached();
+}
+
+async function revealLockedVaultForSmoke(page) {
+  const wasLocked = await page.locator('body').evaluate(body => body.classList.contains('vault-locked'));
+  page.__rvWasLocked = wasLocked;
+  await page.evaluate(() => {
+    document.body.classList.remove('vault-locked');
+    const lock = document.getElementById('vaultLockScreen');
+    if (lock) lock.hidden = true;
+  });
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
 }
 
@@ -49,6 +60,7 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await waitForCatalog(page);
+  await revealLockedVaultForSmoke(page);
 });
 
 test.afterEach(async ({ page }) => {
@@ -58,6 +70,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test('core catalog and navigation work', async ({ page }) => {
+  expect(page.__rvWasLocked).toBe(true);
   await expect(page.locator('body')).toHaveAttribute('data-vault-theme', 'cosmic');
   await expect(page.locator('#cardGrid .card-tile')).not.toHaveCount(0);
 

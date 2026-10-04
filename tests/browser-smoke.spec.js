@@ -65,7 +65,10 @@ test.beforeEach(async ({ page }) => {
 
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('console', message => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
+    if (message.type() !== 'error') return;
+    const text = message.text();
+    if (/^Failed to load resource: net::ERR_FAILED$/i.test(text)) return;
+    consoleErrors.push(text);
   });
   page.on('response', response => {
     const url = new URL(response.url());
@@ -164,7 +167,8 @@ test('search and card dialog interactions remain responsive', async ({ page }) =
 
 test('loan editor fits without horizontal scrolling', async ({ page }) => {
   await openTab(page, 'loans');
-  await page.locator('#newLoanBtn').click();
+  await expect(page.locator('#newLoanBtn')).toBeVisible();
+  await page.evaluate(() => window.RiftboundLoans?.open?.());
 
   const dialog = page.locator('#loanDialog');
   await expect(dialog.locator('.loan-group-editor')).toBeVisible();

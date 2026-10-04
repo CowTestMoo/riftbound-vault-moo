@@ -44,6 +44,16 @@ module.exports = defineConfig({
       }
     },
     {
+      name: 'small-phone-chromium',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 320, height: 568 },
+        hasTouch: true,
+        isMobile: true,
+        deviceScaleFactor: 2
+      }
+    },
+    {
       name: 'phone-webkit',
       use: {
         browserName: 'webkit',

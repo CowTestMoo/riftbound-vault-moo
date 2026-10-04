@@ -34,7 +34,11 @@ test.beforeEach(async ({ page }) => {
 
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('console', message => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
+    if (message.type() !== 'error') return;
+    const text = message.text();
+    // External images/media/fonts are deliberately aborted below to keep CI deterministic.
+    if (text.includes('Failed to load resource: net::ERR_FAILED')) return;
+    consoleErrors.push(text);
   });
   page.on('response', response => {
     const url = new URL(response.url());

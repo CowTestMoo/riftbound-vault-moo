@@ -161,18 +161,36 @@
   }
 
   function recentTransactions(){return readState().transactions.filter(t=>Number(t.delta)>0).slice(0,8);}
+  function baseCollectorSlot(card){
+    const match=String(card?.cardNumber||'').trim().match(/^(\d+)-(\d+)$/);
+    if(!match)return null;
+    const number=Number(match[1]),total=Number(match[2]);
+    if(!Number.isFinite(number)||!Number.isFinite(total)||number<1||total<1||number>total)return null;
+    return {number,total};
+  }
   function setProgressData(){
     const grouped=new Map();
     const s=readState();
-    for(const c of catalog){const set=c.cardSet||'Unknown';if(!grouped.has(set))grouped.set(set,{set,total:0,owned:0});const x=grouped.get(set);x.total++;if(Number(s.inventory?.[c.cardCode]?.owned||0)>0)x.owned++;}
-    return [...grouped.values()].sort((a,b)=>b.owned-a.owned||a.set.localeCompare(b.set));
+    for(const c of catalog){
+      const set=c.cardSet||'Unknown';
+      if(!grouped.has(set))grouped.set(set,{set,total:0,owned:0,masterTotal:0,masterOwned:0,slots:new Set(),ownedSlots:new Set()});
+      const x=grouped.get(set);
+      x.masterTotal++;
+      if(Number(s.inventory?.[c.cardCode]?.owned||0)>0)x.masterOwned++;
+      const slot=baseCollectorSlot(c);
+      if(!slot)continue;
+      x.total=Math.max(x.total,slot.total);
+      x.slots.add(slot.number);
+      if(Number(s.inventory?.[c.cardCode]?.owned||0)>0)x.ownedSlots.add(slot.number);
+    }
+    return [...grouped.values()].map(x=>({...x,owned:x.ownedSlots.size})).sort((a,b)=>b.owned-a.owned||a.set.localeCompare(b.set));
   }
   function renderDashboard(){
     const root=document.getElementById('collectionDashboard');if(!root||!catalog.length)return;
     const recents=recentTransactions();const progress=setProgressData();
     const recentHtml=recents.length?recents.map(t=>{const c=catalogByCode.get(t.cardCode);return `<button class="recent-card" type="button" data-recent-card="${esc(t.cardCode)}">${c?.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}<span><strong>${esc(nameOf(c||{cardCode:t.cardCode}))}</strong><small>+${Number(t.delta)||0} added</small></span></button>`;}).join(''):'<div class="recent-empty">Cards you add will appear here.</div>';
-    const progressHtml=progress.slice(0,12).map(x=>{const pct=x.total?Math.round(x.owned/x.total*100):0;return `<button class="set-progress ${pct===100?'complete':''}" type="button" data-set-filter="${esc(x.set)}"><div class="set-progress-top"><strong>${esc(x.set)}</strong><span>${x.owned}/${x.total}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></button>`;}).join('');
-    root.innerHTML=`<section class="recent-panel"><div class="dashboard-head"><h3>Recently Added</h3><small>Your latest collection updates</small></div><div class="recent-strip">${recentHtml}</div></section><section class="set-progress-panel"><div class="dashboard-head"><h3>Set Completion</h3><small>Unique cards owned</small></div><div class="set-progress-grid">${progressHtml}</div></section>`;
+    const progressHtml=progress.slice(0,12).map(x=>{const pct=x.total?Math.round(x.owned/x.total*100):0;return `<button class="set-progress ${pct===100?'complete':''}" type="button" data-set-filter="${esc(x.set)}"><div class="set-progress-top"><strong>${esc(x.set)}</strong><span>${x.owned}/${x.total}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div><small>Base set • All catalog printings ${x.masterOwned}/${x.masterTotal}</small></button>`;}).join('');
+    root.innerHTML=`<section class="recent-panel"><div class="dashboard-head"><h3>Recently Added</h3><small>Your latest collection updates</small></div><div class="recent-strip">${recentHtml}</div></section><section class="set-progress-panel"><div class="dashboard-head"><h3>Set Completion</h3><small>Base collector-number set, with variants tracked separately</small></div><div class="set-progress-grid">${progressHtml}</div></section>`;
     detectNewCompletions(progress);
   }
 

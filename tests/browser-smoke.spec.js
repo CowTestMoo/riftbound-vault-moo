@@ -17,6 +17,7 @@ async function expectNoHorizontalOverflow(locator) {
 
 test.beforeEach(async ({ page }) => {
   const pageErrors = [];
+  const consoleErrors = [];
   const badLocalResponses = [];
 
   await page.route('**/*', route => {
@@ -32,6 +33,9 @@ test.beforeEach(async ({ page }) => {
   });
 
   page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
   page.on('response', response => {
     const url = new URL(response.url());
     if (url.origin === 'http://127.0.0.1:4173' && response.status() >= 400) {
@@ -40,6 +44,7 @@ test.beforeEach(async ({ page }) => {
   });
 
   page.__rvErrors = pageErrors;
+  page.__rvConsoleErrors = consoleErrors;
   page.__rvBadLocalResponses = badLocalResponses;
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -48,6 +53,7 @@ test.beforeEach(async ({ page }) => {
 
 test.afterEach(async ({ page }) => {
   expect(page.__rvErrors || []).toEqual([]);
+  expect(page.__rvConsoleErrors || []).toEqual([]);
   expect(page.__rvBadLocalResponses || []).toEqual([]);
 });
 
@@ -127,4 +133,15 @@ test('loan editor fits without horizontal scrolling', async ({ page }) => {
 
   await dialog.locator('[data-loan-manager-close]').click();
   await expect(dialog).toBeHidden();
+});
+
+
+test('page never overflows the viewport horizontally', async ({ page }) => {
+  const viewport = page.viewportSize();
+  expect(viewport).toBeTruthy();
+  const dimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
 });

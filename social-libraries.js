@@ -112,7 +112,7 @@
         const qty=Math.max(0,Math.min(99,Math.floor(Number(value||0))));
         if(qty&&String(code).length<=120)cards[String(code)]=qty;
       }
-      return {id:String(deck?.id||`deck-${index}`).slice(0,80),name:String(deck?.name||'Untitled Deck').slice(0,80),champion:String(deck?.champion||'').slice(0,100),notes:String(deck?.notes||'').slice(0,500),cards};
+      return {id:String(deck?.id||`deck-${index}`).slice(0,80),name:String(deck?.name||'Untitled Deck').slice(0,80),champion:String(deck?.champion||'').slice(0,100),cards};
     });
   }
   function publicPayload(){

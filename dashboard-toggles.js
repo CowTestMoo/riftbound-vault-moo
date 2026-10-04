@@ -34,7 +34,7 @@
     if(!document.getElementById('showFilterSummaryToggle')){
       panel.appendChild(makeToggle('showFilterSummaryToggle','showFilterSummary','Filter summary','Show the current filters and visible-card count.'));
       panel.appendChild(makeToggle('showRecentlyAddedToggle','showRecentlyAdded','Recently Added','Show your latest collection additions.'));
-      panel.appendChild(makeToggle('showSetCompletionToggle','showSetCompletion','Set Completion','Show unique-card progress for each set.'));
+      panel.appendChild(makeToggle('showSetCompletionToggle','showSetCompletion','Set Completion','Show base-set progress with variants tracked separately.'));
     }
     return true;
   }

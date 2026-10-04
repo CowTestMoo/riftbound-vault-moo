@@ -36,10 +36,10 @@ Authentication sessions are stored per the user's "Stay signed in" preference. P
 
 ## Performance notes
 
-- Card images use lazy loading where appropriate.
+- Card images use lazy loading where appropriate.\n- The large card catalog revalidates browser cache instead of forcing a full redownload on every visit.\n- Live price data is loaded only when Collection Values is opened.
 - Cloud sync is event-driven and does not continuously poll the database.
 - Cosmic visual and audio assets are deferred until the core catalog is ready and the browser is idle.
-- The old service worker/PWA experiment is retired. Startup code removes stale Riftbound Vault registrations and caches left on older browsers.
+- The old service worker/PWA experiment is retired. Startup cleanup removes stale Riftbound Vault registrations and caches once per browser.
 - Device-specific helpers should avoid running on device classes they do not target.
 
 ## Development

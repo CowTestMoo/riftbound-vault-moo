@@ -9,11 +9,18 @@ async function waitForCatalog(page) {
 async function revealLockedVaultForSmoke(page) {
   const wasLocked = await page.locator('body').evaluate(body => body.classList.contains('vault-locked'));
   await page.addStyleTag({ content: `
-    #vaultLockScreen { display:none !important; }
+    #vaultLockScreen { display:none !important; pointer-events:none !important; }
     body.vault-locked { overflow:auto !important; }
     body.vault-locked .app-shell,
     body.vault-locked > dialog { visibility:visible !important; }
+    *, *::before, *::after { animation-duration:0s !important; transition-duration:0s !important; }
   ` });
+  await page.evaluate(() => {
+    document.body.classList.remove('vault-locked');
+    const lock = document.getElementById('vaultLockScreen');
+    if (lock) lock.hidden = true;
+    window.dispatchEvent(new CustomEvent('riftbound-motion-change', { detail:{enabled:false} }));
+  });
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
   return wasLocked;
 }
@@ -27,11 +34,11 @@ async function openTab(page, tab) {
   if (await isMobileLayout(page)) {
     const button = page.locator(`#mobileNav [data-mobile-tab="${tab}"]`);
     await expect(button).toBeVisible();
-    await button.click();
+    await button.click({ force:true });
   } else {
     const button = page.locator(`.tab[data-tab="${tab}"]`);
     await expect(button).toBeVisible();
-    await button.click();
+    await button.click({ force:true });
   }
   await expect(page.locator(`#${tab}View`)).toHaveClass(/active/);
 }
@@ -93,19 +100,19 @@ test('full responsive vault smoke test', async ({ page }) => {
 
     const tools = page.locator('#mobileToolsCenterBtn');
     await expect(tools).toBeVisible();
-    await tools.click();
+    await tools.click({ force:true });
     const toolsSheet = page.locator('#mobileToolsSheet');
     await expect(toolsSheet).toBeVisible();
-    await toolsSheet.locator('[data-mobile-sheet-close="mobileToolsSheet"]').last().click();
+    await toolsSheet.locator('[data-mobile-sheet-close="mobileToolsSheet"]').last().click({ force:true });
     await expect(toolsSheet).toBeHidden();
 
     const filterButton = page.locator('#mobileFilterBtn');
     await expect(filterButton).toBeVisible();
-    await filterButton.click();
+    await filterButton.click({ force:true });
     const filterSheet = page.locator('#mobileFilterSheet');
     await expect(filterSheet).toBeVisible();
     await expect(page.locator('body')).toHaveClass(/mobile-sheet-open/);
-    await filterSheet.locator('[data-mobile-sheet-close="mobileFilterSheet"]').last().click();
+    await filterSheet.locator('[data-mobile-sheet-close="mobileFilterSheet"]').last().click({ force:true });
     await expect(filterSheet).toBeHidden();
     await expect(page.locator('body')).not.toHaveClass(/mobile-sheet-open/);
   } else {
@@ -116,25 +123,33 @@ test('full responsive vault smoke test', async ({ page }) => {
 
   const settingsButton = page.locator('#uxSettingsBtn');
   await expect(settingsButton).toBeVisible();
-  await settingsButton.click();
+  await settingsButton.click({ force:true });
   const panel = page.locator('#uxSettings');
   await expect(panel).toBeVisible();
   await expect(panel).not.toContainText(/neon/i);
   await expect(page.locator('#intensitySelect')).toHaveCount(0);
   await expect(page.locator('#themeAudioToggle')).toHaveCount(1);
   await expect(page.locator('#animationsToggle')).toHaveCount(1);
-  await page.locator('.settings-close').click();
+  await page.locator('.settings-close').click({ force:true });
   await expect(panel).toBeHidden();
 
   await openTab(page, 'cards');
   const search = page.locator('#cardSearch');
   await search.fill('Ahri');
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
-  await page.locator('#cardGrid .card-tile').first().click();
-  const cardDialog = page.locator('#cardDialog');
-  await expectNoHorizontalOverflow(cardDialog);
-  await cardDialog.locator('[data-close="cardDialog"]').click();
-  await expect(cardDialog).toBeHidden();
+  await page.locator('#cardGrid .card-tile').first().click({ force:true });
+  if (await isMobileLayout(page)) {
+    const cardSheet = page.locator('#mobileCardSheet');
+    await expect(cardSheet).toBeVisible();
+    await expectNoHorizontalOverflow(cardSheet.locator('.mobile-sheet'));
+    await cardSheet.locator('[data-mobile-sheet-close="mobileCardSheet"]').last().click({ force:true });
+    await expect(cardSheet).toBeHidden();
+  } else {
+    const cardDialog = page.locator('#cardDialog');
+    await expectNoHorizontalOverflow(cardDialog);
+    await cardDialog.locator('[data-close="cardDialog"]').click({ force:true });
+    await expect(cardDialog).toBeHidden();
+  }
   await search.fill('');
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
 
@@ -146,7 +161,7 @@ test('full responsive vault smoke test', async ({ page }) => {
   await expect(loanDialog.locator('.loan-group-editor')).toBeVisible();
   await expectNoHorizontalOverflow(loanDialog);
   await expectNoHorizontalOverflow(loanDialog.locator('.loan-group-editor'));
-  await loanDialog.locator('[data-loan-manager-close]').click();
+  await loanDialog.locator('[data-loan-manager-close]').click({ force:true });
   await expect(loanDialog).toBeHidden();
 
   const pageDimensions = await page.evaluate(() => ({

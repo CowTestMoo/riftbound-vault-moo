@@ -7,7 +7,7 @@
 
   function readUX(){try{return {cosmicSound:true,cosmicVolume:100,...JSON.parse(localStorage.getItem(UX_KEY)||'{}')}}catch{return {cosmicSound:true,cosmicVolume:100}}}
   function active(){const s=readUX();return document.body?.dataset?.vaultTheme==='cosmic'&&!!s.cosmicSound}
-  function volume(){return 1}
+  function volume(){const value=Number(readUX().cosmicVolume);return Math.max(0,Math.min(1,(Number.isFinite(value)?value:100)/100))}
   const AudioContextCtor=window.AudioContext||window.webkitAudioContext;
   function unlockAudio(){
     if(!active()||!AudioContextCtor)return;

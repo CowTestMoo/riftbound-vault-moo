@@ -16,7 +16,7 @@ jobs:
   prices:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build daily TCGplayer price map
         shell: bash
         run: |

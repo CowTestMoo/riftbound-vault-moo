@@ -154,7 +154,11 @@
   function cardMeta(code){return byCode().get(code)}
   function activeFriendFilters(key){return key==='type'?typeFilters:key==='domain'?domainFilters:setFilters}
   function buildFilters(entries){
-    const cards=entries.map(x=>x.card).filter(Boolean),types=['All',...new Set(cards.map(c=>c.cardType).filter(Boolean))],domains=['All',...new Set(cards.flatMap(c=>c.domains?.length?c.domains:[c.domain]).filter(Boolean))],sets=['All',...new Set(cards.map(c=>c.cardSet).filter(Boolean))];
+    const cards=entries.map(x=>x.card).filter(Boolean);
+    const types=['All',...new Set(cards.map(c=>c.cardType).filter(Boolean))];
+    const domains=['All',...new Set(cards.flatMap(c=>c.domains?.length?c.domains:[c.domain]).filter(Boolean))];
+    const catalogSets=[...new Set(catalog().map(c=>c.cardSet).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+    const sets=['All',...catalogSets];
     const row=(id,values,key)=>{const element=document.getElementById(id),active=activeFriendFilters(key);if(element)element.innerHTML=values.map(value=>`<button class="filter-chip ${(value==='All'?!active.length:active.includes(value))?'active':''}" data-friend-filter="${key}" data-value="${esc(value)}">${esc(value)}</button>`).join('')};
     row('friendTypeFilters',types,'type');row('friendDomainFilters',domains,'domain');row('friendSetFilters',sets,'set');
   }
@@ -178,7 +182,7 @@
     const showDecks=friendTab==='decks';filterPanel.hidden=showDecks;grid.hidden=showDecks;deckList.hidden=!showDecks;
     if(showDecks){renderPublicDecks(profileRow,lib)}else{
       let entries=visibleCollection(lib);buildFilters(entries);const needle=query.toLowerCase().trim();
-      entries=entries.filter(entry=>{const card=entry.card;if(needle&&!String(`${nameOf(card||{cardCode:entry.code})} ${card?.cardSet||''} ${card?.cardNumber||''}`).toLowerCase().includes(needle))return false;if(typeFilters.length&&!typeFilters.some(type=>card?.cardType===type||(card?.cardTypeLabels||[]).includes(type)))return false;if(domainFilters.length&&!domainFilters.some(domain=>(card?.domains||[card?.domain]).includes(domain)))return false;if(setFilters.length&&!setFilters.includes(card?.cardSet))return false;return true});
+      entries=entries.filter(entry=>{const card=entry.card;if(needle&&!String(`${nameOf(card||{cardCode:entry.code})} ${card?.cardSet||''} ${card?.setCode||''} ${card?.cardNumber||''} ${card?.cardCode||entry.code}`).toLowerCase().includes(needle))return false;if(typeFilters.length&&!typeFilters.some(type=>card?.cardType===type||(card?.cardTypeLabels||[]).includes(type)))return false;if(domainFilters.length&&!domainFilters.some(domain=>(card?.domains||[card?.domain]).includes(domain)))return false;if(setFilters.length&&!setFilters.includes(card?.cardSet))return false;return true});
       grid.innerHTML=entries.length?entries.map(entry=>`<button class="friend-card" type="button" data-public-card="${esc(entry.code)}">${entry.card?.imageUrl?`<img loading="lazy" decoding="async" fetchpriority="low" src="${esc(entry.card.imageUrl)}" alt="${esc(nameOf(entry.card))}">`:'<div class="friend-placeholder">No image</div>'}<span class="qty-badge">×${entry.qty}</span><div><strong>${esc(nameOf(entry.card||{cardCode:entry.code}))}</strong><small>${esc(entry.card?.cardSet||entry.code)} ${esc(entry.card?.cardNumber||'')}</small>${friendTab==='wishlist'?`<em>${esc(entry.val?.priority||'Normal')} priority</em>`:''}</div></button>`).join(''):'<div class="empty-state">No cards match these filters.</div>';
     }
     window.dispatchEvent(new CustomEvent('riftbound-friend-render',{detail:{userId:selectedId,username:profileRow.username}}));

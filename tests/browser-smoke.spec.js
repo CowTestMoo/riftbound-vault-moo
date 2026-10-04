@@ -9,12 +9,32 @@ async function waitForCatalog(page) {
 async function revealLockedVaultForSmoke(page) {
   const wasLocked = await page.locator('body').evaluate(body => body.classList.contains('vault-locked'));
   page.__rvWasLocked = wasLocked;
-  await page.evaluate(() => {
-    document.body.classList.remove('vault-locked');
-    const lock = document.getElementById('vaultLockScreen');
-    if (lock) lock.hidden = true;
-  });
+  await page.addStyleTag({ content: `
+    #vaultLockScreen { display:none !important; }
+    body.vault-locked { overflow:auto !important; }
+    body.vault-locked .app-shell,
+    body.vault-locked > dialog { visibility:visible !important; }
+  ` });
+  await page.waitForTimeout(1400);
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
+}
+
+async function isMobileLayout(page) {
+  const viewport = page.viewportSize();
+  return !!viewport && viewport.width <= 700;
+}
+
+async function openTab(page, tab) {
+  if (await isMobileLayout(page)) {
+    const button = page.locator(`#mobileNav [data-mobile-tab="${tab}"]`);
+    await expect(button).toBeVisible();
+    await button.click();
+  } else {
+    const button = page.locator(`.tab[data-tab="${tab}"]`);
+    await expect(button).toBeVisible();
+    await button.click();
+  }
+  await expect(page.locator(`#${tab}View`)).toHaveClass(/active/);
 }
 
 async function expectNoHorizontalOverflow(locator) {
@@ -74,11 +94,19 @@ test('core catalog and navigation work', async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-vault-theme', 'cosmic');
   await expect(page.locator('#cardGrid .card-tile')).not.toHaveCount(0);
 
-  for (const tab of ['storage', 'decks', 'loans', 'tools', 'cards']) {
-    const button = page.locator(`.tab[data-tab="${tab}"]`);
-    await expect(button).toBeVisible();
-    await button.click();
-    await expect(page.locator(`#${tab}View`)).toHaveClass(/active/);
+  for (const tab of ['storage', 'decks', 'loans', 'cards']) {
+    await openTab(page, tab);
+  }
+
+  if (await isMobileLayout(page)) {
+    const tools = page.locator('#mobileToolsCenterBtn');
+    await expect(tools).toBeVisible();
+    await tools.click();
+    await expect(page.locator('#mobileToolsSheet')).toBeVisible();
+    await page.locator('#mobileToolsSheet [data-mobile-sheet-close="mobileToolsSheet"]').last().click();
+  } else {
+    await openTab(page, 'tools');
+    await openTab(page, 'cards');
   }
 });
 
@@ -135,8 +163,7 @@ test('search and card dialog interactions remain responsive', async ({ page }) =
 });
 
 test('loan editor fits without horizontal scrolling', async ({ page }) => {
-  await page.locator('.tab[data-tab="loans"]').click();
-  await expect(page.locator('#loansView')).toHaveClass(/active/);
+  await openTab(page, 'loans');
   await page.locator('#newLoanBtn').click();
 
   const dialog = page.locator('#loanDialog');

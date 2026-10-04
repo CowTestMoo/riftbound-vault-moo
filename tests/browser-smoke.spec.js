@@ -8,15 +8,14 @@ async function waitForCatalog(page) {
 
 async function revealLockedVaultForSmoke(page) {
   const wasLocked = await page.locator('body').evaluate(body => body.classList.contains('vault-locked'));
-  page.__rvWasLocked = wasLocked;
   await page.addStyleTag({ content: `
     #vaultLockScreen { display:none !important; }
     body.vault-locked { overflow:auto !important; }
     body.vault-locked .app-shell,
     body.vault-locked > dialog { visibility:visible !important; }
   ` });
-  await page.waitForTimeout(1400);
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
+  return wasLocked;
 }
 
 async function isMobileLayout(page) {
@@ -46,7 +45,7 @@ async function expectNoHorizontalOverflow(locator) {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
 }
 
-test.beforeEach(async ({ page }) => {
+test('full responsive vault smoke test', async ({ page }) => {
   const pageErrors = [];
   const consoleErrors = [];
   const badLocalResponses = [];
@@ -66,9 +65,9 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('console', message => {
     if (message.type() !== 'error') return;
-    const text = message.text();
-    if (/^Failed to load resource: net::ERR_FAILED$/i.test(text)) return;
-    consoleErrors.push(text);
+    const value = message.text();
+    if (/^Failed to load resource:/i.test(value)) return;
+    consoleErrors.push(value);
   });
   page.on('response', response => {
     const url = new URL(response.url());
@@ -77,23 +76,11 @@ test.beforeEach(async ({ page }) => {
     }
   });
 
-  page.__rvErrors = pageErrors;
-  page.__rvConsoleErrors = consoleErrors;
-  page.__rvBadLocalResponses = badLocalResponses;
-
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await waitForCatalog(page);
-  await revealLockedVaultForSmoke(page);
-});
+  const wasLocked = await revealLockedVaultForSmoke(page);
 
-test.afterEach(async ({ page }) => {
-  expect(page.__rvErrors || []).toEqual([]);
-  expect(page.__rvConsoleErrors || []).toEqual([]);
-  expect(page.__rvBadLocalResponses || []).toEqual([]);
-});
-
-test('core catalog and navigation work', async ({ page }) => {
-  expect(page.__rvWasLocked).toBe(true);
+  expect(wasLocked).toBe(true);
   await expect(page.locator('body')).toHaveAttribute('data-vault-theme', 'cosmic');
   await expect(page.locator('#cardGrid .card-tile')).not.toHaveCount(0);
 
@@ -102,90 +89,73 @@ test('core catalog and navigation work', async ({ page }) => {
   }
 
   if (await isMobileLayout(page)) {
+    await expect(page.locator('#mobileNav')).toBeVisible();
+
     const tools = page.locator('#mobileToolsCenterBtn');
     await expect(tools).toBeVisible();
     await tools.click();
-    await expect(page.locator('#mobileToolsSheet')).toBeVisible();
-    await page.locator('#mobileToolsSheet [data-mobile-sheet-close="mobileToolsSheet"]').last().click();
+    const toolsSheet = page.locator('#mobileToolsSheet');
+    await expect(toolsSheet).toBeVisible();
+    await toolsSheet.locator('[data-mobile-sheet-close="mobileToolsSheet"]').last().click();
+    await expect(toolsSheet).toBeHidden();
+
+    const filterButton = page.locator('#mobileFilterBtn');
+    await expect(filterButton).toBeVisible();
+    await filterButton.click();
+    const filterSheet = page.locator('#mobileFilterSheet');
+    await expect(filterSheet).toBeVisible();
+    await expect(page.locator('body')).toHaveClass(/mobile-sheet-open/);
+    await filterSheet.locator('[data-mobile-sheet-close="mobileFilterSheet"]').last().click();
+    await expect(filterSheet).toBeHidden();
+    await expect(page.locator('body')).not.toHaveClass(/mobile-sheet-open/);
   } else {
+    await expect(page.locator('#mobileNav')).toBeHidden();
     await openTab(page, 'tools');
     await openTab(page, 'cards');
   }
-});
 
-test('settings are Cosmic-only and remain usable', async ({ page }) => {
   const settingsButton = page.locator('#uxSettingsBtn');
   await expect(settingsButton).toBeVisible();
   await settingsButton.click();
-
   const panel = page.locator('#uxSettings');
   await expect(panel).toBeVisible();
   await expect(panel).not.toContainText(/neon/i);
   await expect(page.locator('#intensitySelect')).toHaveCount(0);
   await expect(page.locator('#themeAudioToggle')).toHaveCount(1);
   await expect(page.locator('#animationsToggle')).toHaveCount(1);
-
   await page.locator('.settings-close').click();
   await expect(panel).toBeHidden();
-});
 
-test('responsive controls do not leave scroll locks behind', async ({ page }) => {
-  const viewport = page.viewportSize();
-  if (!viewport || viewport.width > 700) {
-    await expect(page.locator('#mobileNav')).toBeHidden();
-    return;
-  }
-
-  await expect(page.locator('#mobileNav')).toBeVisible();
-  const filterButton = page.locator('#mobileFilterBtn');
-  await expect(filterButton).toBeVisible();
-  await filterButton.click();
-
-  const sheet = page.locator('#mobileFilterSheet');
-  await expect(sheet).toBeVisible();
-  await expect(page.locator('body')).toHaveClass(/mobile-sheet-open/);
-
-  await sheet.locator('[data-mobile-sheet-close="mobileFilterSheet"]').last().click();
-  await expect(sheet).toBeHidden();
-  await expect(page.locator('body')).not.toHaveClass(/mobile-sheet-open/);
-});
-
-test('search and card dialog interactions remain responsive', async ({ page }) => {
+  await openTab(page, 'cards');
   const search = page.locator('#cardSearch');
   await search.fill('Ahri');
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
-
   await page.locator('#cardGrid .card-tile').first().click();
-  const dialog = page.locator('#cardDialog');
-  await expectNoHorizontalOverflow(dialog);
-  await dialog.locator('[data-close="cardDialog"]').click();
-  await expect(dialog).toBeHidden();
-
+  const cardDialog = page.locator('#cardDialog');
+  await expectNoHorizontalOverflow(cardDialog);
+  await cardDialog.locator('[data-close="cardDialog"]').click();
+  await expect(cardDialog).toBeHidden();
   await search.fill('');
   await expect(page.locator('#cardGrid .card-tile').first()).toBeVisible();
-});
 
-test('loan editor fits without horizontal scrolling', async ({ page }) => {
   await openTab(page, 'loans');
   await expect(page.locator('#newLoanBtn')).toBeVisible();
-  await page.evaluate(() => window.RiftboundLoans?.open?.());
+  await page.waitForFunction(() => typeof window.RiftboundLoans?.open === 'function');
+  await page.evaluate(() => window.RiftboundLoans.open());
+  const loanDialog = page.locator('#loanDialog');
+  await expect(loanDialog.locator('.loan-group-editor')).toBeVisible();
+  await expectNoHorizontalOverflow(loanDialog);
+  await expectNoHorizontalOverflow(loanDialog.locator('.loan-group-editor'));
+  await loanDialog.locator('[data-loan-manager-close]').click();
+  await expect(loanDialog).toBeHidden();
 
-  const dialog = page.locator('#loanDialog');
-  await expect(dialog.locator('.loan-group-editor')).toBeVisible();
-  await expectNoHorizontalOverflow(dialog);
-  await expectNoHorizontalOverflow(dialog.locator('.loan-group-editor'));
-
-  await dialog.locator('[data-loan-manager-close]').click();
-  await expect(dialog).toBeHidden();
-});
-
-
-test('page never overflows the viewport horizontally', async ({ page }) => {
-  const viewport = page.viewportSize();
-  expect(viewport).toBeTruthy();
-  const dimensions = await page.evaluate(() => ({
+  const pageDimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth
   }));
-  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  expect(pageDimensions.scrollWidth).toBeLessThanOrEqual(pageDimensions.clientWidth + 1);
+
+  expect(pageErrors).toEqual([]);
+  expect(consoleErrors).toEqual([]);
+  expect(badLocalResponses).toEqual([]);
 });

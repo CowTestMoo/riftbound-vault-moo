@@ -35,15 +35,20 @@
     window.addEventListener('riftbound-catalog-ready',event=>useCatalog(event.detail?.catalog||[]),{once:true});
   }
 
+  function eachMatch(root,selector,callback){
+    if(root?.matches?.(selector))callback(root);
+    root?.querySelectorAll?.(selector).forEach(callback);
+  }
+
   function decorateCards(root=document){
-    root.querySelectorAll?.('.card-tile[data-card]').forEach(tile=>{
+    eachMatch(root,'.card-tile[data-card]',tile=>{
       const rarity = rarityMap.get(tile.dataset.card);
       if(rarity) tile.dataset.rarity = rarity;
     });
   }
 
   function decorateStorage(root=document){
-    root.querySelectorAll?.('.storage-box').forEach(box=>{
+    eachMatch(root,'.storage-box',box=>{
       const heading = box.querySelector('h3')?.textContent || '';
       const domain = heading.trim().split(/\s+/)[0];
       if(domain) box.dataset.domain = norm(domain);
@@ -51,7 +56,7 @@
   }
 
   function celestialEmptyStates(root=document){
-    root.querySelectorAll?.('.empty-state').forEach(el=>{
+    eachMatch(root,'.empty-state',el=>{
       const text=(el.textContent||'').trim();
       if(text==='No cards match these filters.') el.textContent='No cards found in this corner of the cosmos.';
       else if(text==='No decks yet.') el.textContent='No decks are charting the stars yet.';
@@ -110,20 +115,44 @@
     burstAt(rect.left+rect.width/2,rect.top+rect.height/2,rarityMap.get(code)||'');
   },true);
 
+  let polishFrame=0;
+  const pendingRoots=new Set();
+  let pendingStats=false,pendingStatus=false;
+
+  function flushPolish(){
+    polishFrame=0;
+    for(const root of pendingRoots){
+      decorateCards(root);
+      decorateStorage(root);
+      celestialEmptyStates(root);
+    }
+    pendingRoots.clear();
+    if(pendingStatus)updateLoadingState();
+    if(pendingStats)animateStatChanges();
+    pendingStats=false;
+    pendingStatus=false;
+  }
+
+  function schedulePolish(){
+    if(!polishFrame)polishFrame=requestAnimationFrame(flushPolish);
+  }
+
   const observer=new MutationObserver(records=>{
-    let shouldDecorate=false;
-    let statTouched=false;
+    let changed=false;
     for(const record of records){
-      if(record.type==='childList') shouldDecorate=true;
-      if(record.type==='characterData' || record.target.closest?.('.stats-strip')) statTouched=true;
+      if(record.type==='childList'){
+        for(const node of record.addedNodes){
+          if(node.nodeType===1){pendingRoots.add(node);changed=true}
+        }
+        if(record.target.closest?.('.stats-strip')){pendingStats=true;changed=true}
+        if(record.target.closest?.('#catalogStatus')){pendingStatus=true;changed=true}
+      }else if(record.type==='characterData'){
+        const parent=record.target.parentElement;
+        if(parent?.closest?.('.stats-strip')){pendingStats=true;changed=true}
+        if(parent?.closest?.('#catalogStatus')){pendingStatus=true;changed=true}
+      }
     }
-    if(shouldDecorate){
-      decorateCards(document);
-      decorateStorage(document);
-      celestialEmptyStates(document);
-      updateLoadingState();
-    }
-    if(statTouched || shouldDecorate) animateStatChanges();
+    if(changed)schedulePolish();
   });
 
   observer.observe(document.body,{childList:true,subtree:true,characterData:true});

@@ -16,8 +16,26 @@
   function writeJSON(key,value){localStorage.setItem(key,JSON.stringify(value))}
   function nowIso(){return new Date().toISOString()}
   function hash(value){let h=2166136261,s=JSON.stringify(value);for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(36)}
-  function snapshot(){return{schemaVersion:1,vault:readJSON(APP_KEY,{inventory:{},decks:[],loans:[],transactions:[]}),ux:readJSON(UX_KEY,{})}}
-  function restore(s){suppress=true;try{if(s?.vault)writeJSON(APP_KEY,s.vault);if(s?.ux)writeJSON(UX_KEY,s.ux)}finally{suppress=false}window.RiftboundApp?.reloadState?.();window.dispatchEvent(new CustomEvent('riftbound-cloud-restored'))}
+  function cloudVault(){
+    const vault=readJSON(APP_KEY,{inventory:{},decks:[],loans:[],transactions:[]});
+    const manualPrices=Object.fromEntries(Object.entries(vault.prices||{}).filter(([,price])=>price?.source==='Manual'));
+    return {...vault,transactions:(vault.transactions||[]).slice(0,500),prices:manualPrices};
+  }
+  function snapshot(){return{schemaVersion:2,vault:cloudVault(),ux:readJSON(UX_KEY,{})}}
+  function restore(s){
+    suppress=true;
+    try{
+      if(s?.vault){
+        const local=readJSON(APP_KEY,{});
+        const localAutomatic=Object.fromEntries(Object.entries(local.prices||{}).filter(([,price])=>price?.source!=='Manual'));
+        const remoteManual=Object.fromEntries(Object.entries(s.vault.prices||{}).filter(([,price])=>price?.source==='Manual'));
+        writeJSON(APP_KEY,{...s.vault,transactions:(s.vault.transactions||[]).slice(0,500),prices:{...localAutomatic,...remoteManual}});
+      }
+      if(s?.ux)writeJSON(UX_KEY,s.ux);
+    }finally{suppress=false}
+    window.RiftboundApp?.reloadState?.();
+    window.dispatchEvent(new CustomEvent('riftbound-cloud-restored'));
+  }
   function meta(){return readJSON(META_KEY,{})||{}}
   function setMeta(p){writeJSON(META_KEY,{...meta(),...p})}
   function localHash(){return hash(snapshot())}
@@ -28,10 +46,13 @@
 
   const nativeSet=Storage.prototype.setItem;
   Storage.prototype.setItem=function(k,v){
+    const beforeHash=this===localStorage&&!suppress&&(k===APP_KEY||k===UX_KEY)?localHash():'';
     nativeSet.call(this,k,v);
     if(this===localStorage&&!suppress&&(k===APP_KEY||k===UX_KEY)){
-      setMeta({localChangedAt:nowIso(),localHash:localHash()});
+      const afterHash=localHash();
       window.dispatchEvent(new CustomEvent('riftbound-local-change',{detail:{key:k}}));
+      if(beforeHash===afterHash)return;
+      setMeta({localChangedAt:nowIso(),localHash:afterHash});
       if(isHydrated()&&!reconciling)scheduleSync();
     }
   };

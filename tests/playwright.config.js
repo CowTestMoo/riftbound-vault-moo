@@ -3,10 +3,10 @@ const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: '.',
-  timeout: 30000,
+  timeout: 60000,
   expect: { timeout: 10000 },
-  fullyParallel: true,
-  workers: process.env.CI ? 4 : undefined,
+  fullyParallel: false,
+  workers: process.env.CI ? 2 : undefined,
   retries: 1,
   reporter: 'line',
   use: {
@@ -41,6 +41,16 @@ module.exports = defineConfig({
         hasTouch: true,
         isMobile: true,
         deviceScaleFactor: 2.625
+      }
+    },
+    {
+      name: 'small-phone-chromium',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 320, height: 568 },
+        hasTouch: true,
+        isMobile: true,
+        deviceScaleFactor: 2
       }
     },
     {

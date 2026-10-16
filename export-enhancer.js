@@ -100,6 +100,6 @@
     a.href=url;a.download=`riftbound-vault-backup-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
   }
   function bind(){const btn=document.getElementById('exportBtn');if(!btn||btn.dataset.enhancedExport)return;btn.dataset.enhancedExport='1';btn.addEventListener('click',exportEnhanced,true)}
-  function init(){bind();new MutationObserver(bind).observe(document.body,{childList:true,subtree:true})}
+  function init(){bind()}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

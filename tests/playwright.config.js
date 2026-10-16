@@ -6,12 +6,12 @@ module.exports = defineConfig({
   timeout: 30000,
   expect: { timeout: 10000 },
   fullyParallel: true,
-  workers: process.env.CI ? 4 : undefined,
+  workers: process.env.CI ? 2 : undefined,
   retries: 1,
   reporter: 'line',
   use: {
     baseURL: 'http://127.0.0.1:4173',
-    trace: 'retain-on-failure'
+    trace: 'on-first-retry'
   },
   webServer: {
     command: 'python3 -m http.server 4173 --bind 127.0.0.1',

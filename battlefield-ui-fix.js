@@ -53,7 +53,8 @@
       }
     }).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['src']});
     window.addEventListener('riftbound-ui-render',event=>{
-      if(['cards','card-dialog'].includes(event.detail?.area))requestAnimationFrame(refreshVisible);
+      const scopes=event.detail?.scopes||[];
+      if(scopes.includes('cards')||scopes.includes('card-dialog'))requestAnimationFrame(refreshVisible);
     });
     window.addEventListener('riftbound-friend-render',()=>requestAnimationFrame(refreshVisible));
     window.addEventListener('riftbound-cloud-restored',()=>{catalogRef=null;requestAnimationFrame(refreshVisible)});

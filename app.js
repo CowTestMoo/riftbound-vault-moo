@@ -154,7 +154,7 @@ async function requestCatalogAttempt(attempt){
   const controller=typeof AbortController==='function'?new AbortController():null;
   let timer=0;
   const request=(async()=>{
-    const init={cache:'no-store'};
+    const init={cache:'no-cache'};
     if(controller)init.signal=controller.signal;
     const response=await fetch(catalogRequestUrl(attempt),init);
     if(!response.ok)throw new Error(`HTTP ${response.status}`);

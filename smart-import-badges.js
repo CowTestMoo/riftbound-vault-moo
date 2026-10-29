@@ -71,7 +71,11 @@
   document.addEventListener('change',e=>{if(e.target.id==='sheetMode'||e.target.matches?.('[data-map]'))setTimeout(schedule,0)});
   document.addEventListener('click',e=>{if(e.target.closest?.('#openSpreadsheetImport,#reviewSheet,[data-save-row],[data-ignore-row],#sheetProblems'))setTimeout(schedule,30)});
 
-  const observer=new MutationObserver(records=>{if(relevantMutation(records))schedule()});
-  function init(){observer.observe(document.body,{childList:true,subtree:true,characterData:true});schedule()}
+  const observer=new MutationObserver(()=>schedule());
+  function init(){
+    const preview=document.getElementById('sheetPreview');
+    if(preview)observer.observe(preview,{childList:true,subtree:true,characterData:true});
+    schedule();
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

@@ -1,7 +1,6 @@
 /* Riftbound Vault usability + cosmic polish */
 :root{--sky-opacity:.98;--ux-accent:#7ce6ff;--ux-gold:#ffe19f;--ux-panel:rgba(8,14,30,.92)}
 #cosmicSky{opacity:var(--sky-opacity)!important;transition:opacity .25s ease}
-body[data-intensity="calm"]{--sky-opacity:.58}body[data-intensity="calm"] .topbar::before,body[data-intensity="calm"] .topbar::after,body[data-intensity="calm"] .stats-strip::after{animation-duration:38s!important;opacity:.55}body[data-intensity="calm"] .card-tile::after{opacity:0!important}
 body[data-intensity="supernova"]{--sky-opacity:1}body[data-intensity="supernova"] .topbar,body[data-intensity="supernova"] .stats-strip{box-shadow:0 18px 58px rgba(0,0,0,.48),0 0 30px rgba(121,160,255,.13)}body[data-intensity="supernova"] .card-tile:hover .card-image-wrap{box-shadow:0 15px 34px rgba(0,0,0,.4),0 0 30px rgba(124,230,255,.22)}
 
 .ux-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:10px 0 12px}.ux-control-group{display:flex;align-items:center;gap:5px;padding:4px;border:1px solid rgba(121,160,255,.16);border-radius:12px;background:rgba(8,14,30,.78)}.ux-control-label{padding:0 7px;color:var(--muted);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.ux-segment{border:0;background:transparent;color:#9fb0d6;border-radius:8px;padding:7px 10px;font-size:.78rem;font-weight:750}.ux-segment.active{color:#08101f;background:linear-gradient(180deg,#bfefff,#79a0ff);box-shadow:0 0 14px rgba(124,230,255,.15)}.ux-settings-btn{margin-left:auto}

@@ -105,12 +105,6 @@
       applyVisibility();
     });
 
-    const observer=new MutationObserver(()=>{
-      ensureSettingsExtras();
-      applyVisibility();
-    });
-    observer.observe(document.body,{childList:true,subtree:true});
-
     window.addEventListener('storage',event=>{
       if(event.key===SETTINGS_KEY)applyVisibility();
     });

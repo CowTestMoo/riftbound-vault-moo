@@ -110,20 +110,42 @@
     burstAt(rect.left+rect.width/2,rect.top+rect.height/2,rarityMap.get(code)||'');
   },true);
 
+  let mutationFrame=0;
+  const mutationRoots=new Set();
+  let statsDirty=false;
+  let loadingDirty=false;
+
+  function scheduleMutationFlush(){
+    if(mutationFrame)return;
+    mutationFrame=requestAnimationFrame(()=>{
+      mutationFrame=0;
+      for(const root of mutationRoots){
+        if(!(root instanceof Element))continue;
+        decorateCards(root);
+        decorateStorage(root);
+        celestialEmptyStates(root);
+      }
+      mutationRoots.clear();
+      if(loadingDirty)updateLoadingState();
+      if(statsDirty)animateStatChanges();
+      statsDirty=false;
+      loadingDirty=false;
+    });
+  }
+
   const observer=new MutationObserver(records=>{
-    let shouldDecorate=false;
-    let statTouched=false;
     for(const record of records){
-      if(record.type==='childList') shouldDecorate=true;
-      if(record.type==='characterData' || record.target.closest?.('.stats-strip')) statTouched=true;
+      const target=record.target?.nodeType===Node.ELEMENT_NODE?record.target:record.target?.parentElement;
+      if(target?.closest?.('.stats-strip'))statsDirty=true;
+      if(target?.closest?.('#catalogStatus'))loadingDirty=true;
+
+      if(record.type!=='childList')continue;
+      for(const node of record.addedNodes){
+        const root=node.nodeType===Node.ELEMENT_NODE?node:node.parentElement;
+        if(root)mutationRoots.add(root);
+      }
     }
-    if(shouldDecorate){
-      decorateCards(document);
-      decorateStorage(document);
-      celestialEmptyStates(document);
-      updateLoadingState();
-    }
-    if(statTouched || shouldDecorate) animateStatChanges();
+    if(mutationRoots.size||statsDirty||loadingDirty)scheduleMutationFlush();
   });
 
   observer.observe(document.body,{childList:true,subtree:true,characterData:true});

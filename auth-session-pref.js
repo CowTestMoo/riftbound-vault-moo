@@ -51,15 +51,17 @@
   migrateAuth();
 
   function ensureCheckbox(){
+    if(document.getElementById('cloudStaySignedIn'))return true;
     const dialog=document.getElementById('cloudAuthDialog');
-    if(!dialog||document.getElementById('cloudStaySignedIn'))return;
+    if(!dialog)return false;
     const password=document.getElementById('cloudPassword');
     const passwordLabel=password?.closest('label');
-    if(!passwordLabel)return;
+    if(!passwordLabel)return false;
     const row=document.createElement('label');
     row.className='cloud-remember-row';
     row.innerHTML=`<span class="cloud-remember-copy"><input id="cloudStaySignedIn" type="checkbox" ${wantsPersistent()?'checked':''}> <strong>Stay signed in</strong></span><small>Keep me signed in on this device after I close the browser.</small>`;
     passwordLabel.insertAdjacentElement('afterend',row);
+    return true;
   }
 
   document.addEventListener('change',e=>{
@@ -74,8 +76,10 @@
   });
 
   function init(){
-    ensureCheckbox();
-    const observer=new MutationObserver(ensureCheckbox);
+    if(ensureCheckbox())return;
+    const observer=new MutationObserver(()=>{
+      if(ensureCheckbox())observer.disconnect();
+    });
     observer.observe(document.body,{childList:true,subtree:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
